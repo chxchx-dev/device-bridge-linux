@@ -179,6 +179,27 @@ test('scrcpy start is opt-in and returns no process output to the client', async
   await app.close();
 });
 
+test('Sunshine start and stop are opt-in, confirmed and use the fixed control adapter', async () => {
+  const token = 'device-token-for-sunshine-control-test-1234567890';
+  const store = new PairingStore(['gaming:start', 'gaming:stop']);
+  store.seedDevice(deviceId, token);
+  const operations: string[] = [];
+  const app = createApp({ store, enableSunshineControl: true, sunshineControl: async (operation) => { operations.push(operation); return { requested: operation, active: operation === 'start' }; } });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+
+  const startChallenge = await app.inject({ method: 'GET', url: '/v1/actions/gaming.sunshine.start/challenge', headers });
+  const start = await app.inject({ method: 'POST', url: '/v1/actions/gaming.sunshine.start', headers, payload: { confirmation: { challengeId: startChallenge.json().challengeId } } });
+  assert.equal(start.statusCode, 200);
+  assert.deepEqual(start.json().result, { requested: 'start', active: true });
+
+  const stopChallenge = await app.inject({ method: 'GET', url: '/v1/actions/gaming.sunshine.stop/challenge', headers });
+  const stop = await app.inject({ method: 'POST', url: '/v1/actions/gaming.sunshine.stop', headers, payload: { confirmation: { challengeId: stopChallenge.json().challengeId } } });
+  assert.equal(stop.statusCode, 200);
+  assert.deepEqual(stop.json().result, { requested: 'stop', active: false });
+  assert.deepEqual(operations, ['start', 'stop']);
+  await app.close();
+});
+
 test('invalid action IDs and payloads are rejected before execution', async () => {
   const token = 'device-token-for-input-test-1234567890';
   const store = new PairingStore(['system:read']);

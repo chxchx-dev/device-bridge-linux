@@ -8,7 +8,7 @@ Orchestrate mature tools instead of rebuilding them.
 - [x] KDE Connect status; mutating actions remain disabled pending explicit adapters.
 - [x] ADB status and trusted-device checks.
 - [x] Opt-in scrcpy launch helper on Fedora with fixed arguments; arbitrary input remains rejected.
-- [x] Sunshine status; start/stop remains disabled pending a reversible service adapter.
+- [x] Sunshine status and opt-in confirmed start/stop adapter.
 - [ ] Moonlight handoff/deep link research.
 - [ ] Docker service/project mode actions.
 - [ ] Project registry for dev mode.

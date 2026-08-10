@@ -14,6 +14,7 @@ export const ActionIdSchema = z.enum([
   'system.unlock',
   'gaming.sunshine.status',
   'gaming.sunshine.start',
+  'gaming.sunshine.stop',
   'android.adb.status',
   'codex.status',
   'codex.approval.respond',

@@ -12,6 +12,8 @@ export type IntegrationStatus = {
 };
 
 export type ScrcpyStartResult = { started: true; pid: number | null };
+export type SunshineOperation = 'start' | 'stop';
+export type SunshineControlResult = { requested: SunshineOperation; active: boolean };
 
 function configuredScrcpyArgs(): string[] {
   const serial = process.env.DEVICEBRIDGE_SCRCPY_SERIAL;
@@ -28,6 +30,13 @@ export function startScrcpy(): Promise<ScrcpyStartResult> {
       resolve({ started: true, pid: child.pid ?? null });
     });
   });
+}
+
+export async function controlSunshine(operation: SunshineOperation): Promise<SunshineControlResult> {
+  const command = await fixedCommand('/usr/bin/systemctl', ['--user', operation, 'sunshine']);
+  if (!command.ok) throw new Error('Sunshine adapter failed');
+  const status = await fixedCommand('/usr/bin/systemctl', ['--user', 'is-active', 'sunshine']);
+  return { requested: operation, active: status.ok && status.stdout.trim() === 'active' };
 }
 
 async function fixedCommand(file: string, args: readonly string[]): Promise<{ ok: boolean; stdout: string }> {
