@@ -11,6 +11,7 @@ export interface ActionDefinition {
 
 export const actionRegistry: Readonly<Record<ActionId, ActionDefinition>> = {
   'system.status': { id: 'system.status', risk: 'R0', capability: 'system:read', enabledByDefault: true, confirmation: 'none', description: 'Read basic Fedora status' },
+  'integrations.status': { id: 'integrations.status', risk: 'R0', capability: 'system:read', enabledByDefault: true, confirmation: 'none', description: 'Read KDE Connect, ADB, scrcpy and Sunshine status' },
   'system.lock': { id: 'system.lock', risk: 'R2', capability: 'system:lock', enabledByDefault: false, confirmation: 'required', description: 'Lock current desktop session' },
   'system.suspend': { id: 'system.suspend', risk: 'R2', capability: 'system:suspend', enabledByDefault: false, confirmation: 'required', description: 'Suspend Fedora after local validation' },
   'system.shutdown': { id: 'system.shutdown', risk: 'R3', capability: 'system:shutdown', enabledByDefault: false, confirmation: 'step-up', description: 'Power off Fedora' },

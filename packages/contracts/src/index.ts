@@ -5,6 +5,7 @@ export type RiskClass = z.infer<typeof RiskClassSchema>;
 
 export const ActionIdSchema = z.enum([
   'system.status',
+  'integrations.status',
   'system.lock',
   'system.suspend',
   'system.shutdown',

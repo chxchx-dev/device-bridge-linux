@@ -9,6 +9,7 @@ import { readDeviceStatus } from './system.js';
 import { pairingPage } from './pairing-page.js';
 import { ChallengeStore } from './challenges.js';
 import { createSystemSessionAdapter, type SessionAdapter } from './system-actions.js';
+import { readIntegrationStatus, type IntegrationStatus } from './integrations.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -78,6 +79,7 @@ export interface AppOptions {
   enableSystemLock?: boolean;
   challenges?: ChallengeStore;
   sessionAdapter?: SessionAdapter;
+  integrationStatus?: () => Promise<IntegrationStatus>;
 }
 
 export function createApp(options: AppOptions = {}): FastifyInstance {
@@ -87,6 +89,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const challenges = options.challenges ?? new ChallengeStore();
   const sessionAdapter = options.sessionAdapter ?? createSystemSessionAdapter();
   const enableSystemLock = options.enableSystemLock ?? process.env.DEVICEBRIDGE_ENABLE_SYSTEM_LOCK === 'true';
+  const integrationStatus = options.integrationStatus ?? readIntegrationStatus;
   const devDeviceId = options.devDeviceId ?? process.env.DEVICEBRIDGE_DEVICE_ID;
   const devToken = options.devToken ?? process.env.DEVICEBRIDGE_DEV_TOKEN;
   const pairingToken = options.pairingToken ?? process.env.DEVICEBRIDGE_PAIRING_TOKEN;
@@ -194,6 +197,12 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: readDeviceStatus() };
+    }
+    if (definition.id === 'integrations.status') {
+      const result = await integrationStatus();
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
     }
     if (definition.id === 'system.lock') {
       const startedAt = performance.now();

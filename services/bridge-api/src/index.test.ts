@@ -114,6 +114,27 @@ test('action catalog and status require the declared read capability', async () 
   await app.close();
 });
 
+test('integration status uses the fixed adapter boundary', async () => {
+  const token = 'device-token-for-integration-test-1234567890';
+  const store = new PairingStore(['system:read']);
+  store.seedDevice(deviceId, token);
+  const app = createApp({ store, integrationStatus: async () => ({
+    kdeConnect: { available: true, pairedReachable: true, deviceCount: 1 },
+    adb: { available: true, connected: true, deviceCount: 1 },
+    scrcpy: { available: true, version: '4.1' },
+    sunshine: { available: true, active: true },
+  }) });
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/actions/integrations.status',
+    headers: { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId },
+    payload: {},
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().result.adb.connected, true);
+  await app.close();
+});
+
 test('invalid action IDs and payloads are rejected before execution', async () => {
   const token = 'device-token-for-input-test-1234567890';
   const store = new PairingStore(['system:read']);
