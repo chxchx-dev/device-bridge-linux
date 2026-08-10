@@ -15,7 +15,8 @@ Create a reproducible baseline and verify what the actual Fedora laptop + Androi
 - [x] Verify Tailscale on Fedora and Android.
 - [x] Install Codex CLI. *(Sign-in remains unverified.)*
 - [x] Sign in to Codex CLI. *(Verified with `codex login --device-auth`.)*
-- [ ] Install/configure Sunshine only from an upstream-supported package. *(Pending sudo installation.)*
+- [x] Install Sunshine from an upstream-supported package. *(LizardByte COPR, `Sunshine-2026.516.143833-1.fc44.x86_64`.)*
+- [ ] Configure Sunshine for KDE Wayland and tailnet/LAN-only access. *(Not enabled yet.)*
 - [x] Record hardware WOL capability; do not enable remote wake yet. *(Active Wi-Fi `wlo1` does not advertise WOL support; feature remains disabled.)*
 
 ## Deliverables

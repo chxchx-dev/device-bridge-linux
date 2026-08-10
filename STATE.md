@@ -12,7 +12,7 @@ nodes:
     tailscale: online
     bridge_api: implemented_local
     codex: installed_unverified_login
-    sunshine: missing
+    sunshine: installed_not_configured
     adb: verified_usb
     scrcpy: missing
     kde_connect: paired_user_confirmed
@@ -54,7 +54,7 @@ security:
   unlock_policy: step_up_auth_required
 
 blockers:
-  - sunshine_not_installed
+  - sunshine_configuration_pending
   - android_pairing_client_pending
 last_verified: 2026-08-09
 ```
@@ -79,4 +79,5 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: User confirmed KDE Connect pairing; direct CLI verification was unavailable because this sandbox lacks the user D-Bus session.
 - 2026-08-09: Sunshine remains missing from the executable PATH; Codex CLI login was confirmed with `codex login --device-auth`.
 - 2026-08-09: WOL inventory recorded: active Wi-Fi interface `wlo1` exposes no `Supports Wake-on`/`Wake-on` capability; WOL remains disabled.
-- 2026-08-09: Sunshine installation is pending because enabling the upstream LizardByte COPR requires the user's local sudo password.
+- 2026-08-09: Sunshine configuration/activation is pending; package installation is complete.
+- 2026-08-09: Sunshine installed from LizardByte COPR as `Sunshine-2026.516.143833-1.fc44.x86_64`; user service unit is present but configuration/activation remains pending.
