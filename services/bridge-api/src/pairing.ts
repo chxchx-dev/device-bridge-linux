@@ -22,6 +22,11 @@ function hashSecret(secret: string): string {
   return createHash('sha256').update(secret, 'utf8').digest('hex');
 }
 
+export function pairingCodeForToken(token: string): string {
+  const numeric = Number.parseInt(hashSecret(token).slice(0, 7), 16) % 900000 + 100000;
+  return String(numeric);
+}
+
 function equalHash(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left, 'hex');
   const rightBuffer = Buffer.from(right, 'hex');
@@ -53,7 +58,7 @@ export class PairingStore {
 
   issuePairingToken(token: string, ttlSeconds = 600): string {
     const expiresAt = Date.now() + ttlSeconds * 1000;
-    this.pairing = { tokenHash: hashSecret(token), codeHash: hashSecret(token.slice(-6)), expiresAt, consumed: false, failedAttempts: 0 };
+    this.pairing = { tokenHash: hashSecret(token), codeHash: hashSecret(pairingCodeForToken(token)), expiresAt, consumed: false, failedAttempts: 0 };
     return new Date(expiresAt).toISOString();
   }
 

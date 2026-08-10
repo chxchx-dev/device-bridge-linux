@@ -13,4 +13,5 @@ if [[ ${#pairing_token} -lt 24 ]]; then
   exit 1
 fi
 
-printf '%s\n' "${pairing_token: -6}"
+hash_hex="$(printf '%s' "$pairing_token" | sha256sum | cut -c1-7)"
+printf '%s\n' "$((16#$hash_hex % 900000 + 100000))"

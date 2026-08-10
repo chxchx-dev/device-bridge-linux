@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createApp } from './index.js';
-import { PairingStore } from './pairing.js';
+import { PairingStore, pairingCodeForToken } from './pairing.js';
 import { createSystemSessionAdapter } from './system-actions.js';
 
 const deviceId = 'android-a17-test';
@@ -69,7 +69,7 @@ test('pairing token is one-time and returns a device token', async () => {
 
 test('six-digit pairing code maps to the final six characters of the active token', async () => {
   const app = createApp({ pairingToken });
-  const code = pairingToken.slice(-6);
+  const code = pairingCodeForToken(pairingToken);
   const response = await app.inject({
     method: 'POST',
     url: '/v1/pairing/complete',
