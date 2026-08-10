@@ -16,7 +16,7 @@ Create a reproducible baseline and verify what the actual Fedora laptop + Androi
 - [x] Install Codex CLI. *(Sign-in remains unverified.)*
 - [x] Sign in to Codex CLI. *(Verified with `codex login --device-auth`.)*
 - [x] Install Sunshine from an upstream-supported package. *(LizardByte COPR, `Sunshine-2026.516.143833-1.fc44.x86_64`.)*
-- [ ] Configure Sunshine for KDE Wayland and tailnet/LAN-only access. *(Not enabled yet.)*
+- [x] Configure Sunshine for KDE Wayland and tailnet/LAN-only access. *(User manually verified Moonlight connection from the Samsung.)*
 - [x] Record hardware WOL capability; do not enable remote wake yet. *(Active Wi-Fi `wlo1` does not advertise WOL support; feature remains disabled.)*
 
 ## Deliverables

@@ -3,8 +3,8 @@
 ```yaml
 project: DeviceBridge
 schema_version: 1
-current_phase: 0
-status: foundation_in_progress
+current_phase: 1
+status: phase_1_connectivity_in_progress
 
 nodes:
   fedora:
@@ -12,7 +12,7 @@ nodes:
     tailscale: online
     bridge_api: implemented_local
     codex: installed_login_verified
-    sunshine: active_network_hardening_pending
+    sunshine: verified_tailnet_streaming
     adb: verified_usb
     scrcpy: verified_usb
     kde_connect: paired_user_confirmed
@@ -54,7 +54,6 @@ security:
   unlock_policy: step_up_auth_required
 
 blockers:
-  - sunshine_network_hardening_pending
   - android_pairing_client_pending
 last_verified: 2026-08-09
 ```
@@ -80,4 +79,5 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: User confirmed KDE Connect pairing; direct CLI verification was unavailable because this sandbox lacks the user D-Bus session.
 - 2026-08-09: Sunshine package and service are installed; Codex CLI login was confirmed with `codex login --device-auth`.
 - 2026-08-09: WOL inventory recorded: active Wi-Fi interface `wlo1` exposes no `Supports Wake-on`/`Wake-on` capability; WOL remains disabled.
-- 2026-08-09: Sunshine installed from LizardByte COPR as `Sunshine-2026.516.143833-1.fc44.x86_64`; user service is active and network binding hardening remains pending.
+- 2026-08-09: Sunshine installed from LizardByte COPR as `Sunshine-2026.516.143833-1.fc44.x86_64`; user service is active and streaming was manually verified from Samsung.
+- 2026-08-09: User manually verified successful Sunshine/Moonlight streaming from the Samsung over the configured private connection.
