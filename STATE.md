@@ -4,7 +4,7 @@
 project: DeviceBridge
 schema_version: 1
 current_phase: 5
-status: integrations_pending
+status: integrations_in_progress
 
 nodes:
   fedora:
@@ -41,6 +41,7 @@ features:
   command_registry: implemented
   web_console: phase_3_verified_tailnet
   mobile_console: phase_4_verified_native_client
+  integrations_status: phase_5_read_only_adapter_verified
   remote_access: tailnet_verified
   codex_cockpit: not_started
   mcp: not_started
@@ -88,3 +89,4 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-10: Phase 4 client slice built and installed: Keychain-backed credential store, authenticated HTTP client, authenticated WebSocket client and Fedora status/pairing UI compile and pass mobile tests; Metro connected through ADB.
 - 2026-08-10: Phase 4 Android pairing accepted on Samsung `SM-A175F/DS`: the six-digit development pairing code completed `/v1/pairing/complete`, the app loaded Fedora status, and a clean relaunch restored the secure session from Android Keychain without React Native runtime errors.
 - 2026-08-10: Phase 4 closed: biometric step-up abstraction, action confirmation/challenge client, invalid/revoked session cleanup and secure-session removal were implemented; monorepo typecheck/lint/tests, Android JDK17 build, APK installation and Samsung relaunch passed. QR pairing and Moonlight/KDE Connect deep links remain optional Phase 5+ enhancements.
+- 2026-08-10: Phase 5 started: Fedora inventory confirmed KDE Connect paired/reachable, ADB Samsung USB connected, scrcpy 4.1 installed and Sunshine active. Added authenticated `integrations.status` with fixed executable adapters; API tests and Samsung request returned HTTP 200.

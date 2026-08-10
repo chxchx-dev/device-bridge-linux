@@ -20,6 +20,12 @@ export type Action = {
 };
 
 export type ActionChallenge = { challengeId: string; actionId: string; expiresAt: string };
+export type IntegrationStatus = {
+  kdeConnect: { available: boolean; pairedReachable: boolean; deviceCount: number };
+  adb: { available: boolean; connected: boolean; deviceCount: number };
+  scrcpy: { available: boolean; version: string | null };
+  sunshine: { available: boolean; active: boolean };
+};
 
 type ErrorBody = { error?: { message?: string } };
 
@@ -54,6 +60,10 @@ export class BridgeClient {
 
   getActions(session: StoredSession): Promise<{ actions: Action[] }> {
     return this.request('/v1/actions', session);
+  }
+
+  getIntegrationStatus(session: StoredSession): Promise<{ result: IntegrationStatus }> {
+    return this.request('/v1/actions/integrations.status', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
   }
 
   getChallenge(session: StoredSession, actionId: string): Promise<ActionChallenge> {

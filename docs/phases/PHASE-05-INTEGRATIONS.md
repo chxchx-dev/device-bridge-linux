@@ -4,6 +4,7 @@
 Orchestrate mature tools instead of rebuilding them.
 
 ## Adapters
+- [x] Read-only integration status adapter (KDE Connect, ADB, scrcpy and Sunshine).
 - [ ] KDE Connect status/actions.
 - [ ] ADB status and trusted-device checks.
 - [ ] scrcpy launch helper on Fedora.
