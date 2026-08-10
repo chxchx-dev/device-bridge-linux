@@ -67,6 +67,20 @@ test('pairing token is one-time and returns a device token', async () => {
   await app.close();
 });
 
+test('six-digit pairing code maps to the final six characters of the active token', async () => {
+  const app = createApp({ pairingToken });
+  const code = pairingToken.slice(-6);
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/pairing/complete',
+    payload: { deviceId, pairingToken: code },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().deviceId, deviceId);
+  await app.close();
+});
+
 test('revoked device token is denied', () => {
   const store = new PairingStore();
   const token = 'device-token-for-revocation-test-123456';

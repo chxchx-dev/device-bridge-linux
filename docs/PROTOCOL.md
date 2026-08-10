@@ -30,6 +30,11 @@ Pairing completion accepts a short-lived one-time secret and a client-generated
 device ID. The response contains the device bearer token once; the server keeps
 only a hash of both pairing and device secrets.
 
+For the development bridge, the last six digits of the active pairing token are
+also accepted as a one-time convenience code. The code is limited to five
+failed attempts and shares the token expiration; production pairing should use
+the full secret or a stronger out-of-band flow.
+
 ```json
 {
   "deviceId": "android-a17-control",

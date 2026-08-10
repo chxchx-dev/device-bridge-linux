@@ -22,7 +22,7 @@ export type DeviceId = z.infer<typeof DeviceIdSchema>;
 
 export const PairingRequestSchema = z.object({
   deviceId: DeviceIdSchema,
-  pairingToken: z.string().min(24).max(256),
+  pairingToken: z.string().max(256).refine((value) => value.length >= 24 || /^\d{6}$/.test(value), 'Pairing token must be a long token or six-digit code'),
 });
 export type PairingRequest = z.infer<typeof PairingRequestSchema>;
 

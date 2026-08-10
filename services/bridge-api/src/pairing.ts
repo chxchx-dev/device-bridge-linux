@@ -12,8 +12,10 @@ interface DeviceRecord {
 
 interface PairingRecord {
   tokenHash: string;
+  codeHash: string;
   expiresAt: number;
   consumed: boolean;
+  failedAttempts: number;
 }
 
 function hashSecret(secret: string): string {
@@ -51,14 +53,18 @@ export class PairingStore {
 
   issuePairingToken(token: string, ttlSeconds = 600): string {
     const expiresAt = Date.now() + ttlSeconds * 1000;
-    this.pairing = { tokenHash: hashSecret(token), expiresAt, consumed: false };
+    this.pairing = { tokenHash: hashSecret(token), codeHash: hashSecret(token.slice(-6)), expiresAt, consumed: false, failedAttempts: 0 };
     return new Date(expiresAt).toISOString();
   }
 
   completePairing(deviceId: DeviceId, token: string, capabilities = this.defaultCapabilities): PairingResult | undefined {
     const pairing = this.pairing;
-    if (!pairing || pairing.consumed || pairing.expiresAt <= Date.now()) return undefined;
-    if (!equalHash(pairing.tokenHash, hashSecret(token))) return undefined;
+    if (!pairing || pairing.consumed || pairing.expiresAt <= Date.now() || pairing.failedAttempts >= 5) return undefined;
+    const suppliedHash = token.length === 6 && /^\d{6}$/.test(token) ? pairing.codeHash : pairing.tokenHash;
+    if (!equalHash(suppliedHash, hashSecret(token))) {
+      pairing.failedAttempts += 1;
+      return undefined;
+    }
 
     pairing.consumed = true;
     const deviceToken = randomBytes(32).toString('base64url');
