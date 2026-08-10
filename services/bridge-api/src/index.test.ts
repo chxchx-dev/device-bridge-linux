@@ -135,6 +135,28 @@ test('integration status uses the fixed adapter boundary', async () => {
   await app.close();
 });
 
+test('scoped integration status actions enforce capabilities and return only their adapter result', async () => {
+  const token = 'device-token-for-scoped-integration-test-1234567890';
+  const store = new PairingStore(['system:read', 'android:read', 'gaming:read']);
+  store.seedDevice(deviceId, token);
+  const app = createApp({ store, integrationStatus: async () => ({
+    kdeConnect: { available: true, pairedReachable: true, deviceCount: 1 },
+    adb: { available: true, connected: true, deviceCount: 1 },
+    scrcpy: { available: true, version: '4.1' },
+    sunshine: { available: true, active: false },
+  }) });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+
+  const adb = await app.inject({ method: 'POST', url: '/v1/actions/android.adb.status', headers, payload: {} });
+  assert.equal(adb.statusCode, 200);
+  assert.deepEqual(adb.json().result, { available: true, connected: true, deviceCount: 1 });
+
+  const sunshine = await app.inject({ method: 'POST', url: '/v1/actions/gaming.sunshine.status', headers, payload: {} });
+  assert.equal(sunshine.statusCode, 200);
+  assert.deepEqual(sunshine.json().result, { available: true, active: false });
+  await app.close();
+});
+
 test('invalid action IDs and payloads are rejected before execution', async () => {
   const token = 'device-token-for-input-test-1234567890';
   const store = new PairingStore(['system:read']);

@@ -83,7 +83,7 @@ export interface AppOptions {
 }
 
 export function createApp(options: AppOptions = {}): FastifyInstance {
-  const defaultCapabilities = options.defaultCapabilities ?? (process.env.DEVICEBRIDGE_DEFAULT_CAPABILITIES?.split(',').map((capability) => capability.trim()).filter(Boolean) ?? ['system:read']);
+  const defaultCapabilities = options.defaultCapabilities ?? (process.env.DEVICEBRIDGE_DEFAULT_CAPABILITIES?.split(',').map((capability) => capability.trim()).filter(Boolean) ?? ['system:read', 'android:read', 'gaming:read']);
   const store = options.store ?? new PairingStore(defaultCapabilities);
   const auditSink = options.auditSink ?? new InMemoryAuditSink();
   const challenges = options.challenges ?? new ChallengeStore();
@@ -203,6 +203,13 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+    }
+    if (definition.id === 'android.adb.status' || definition.id === 'gaming.sunshine.status') {
+      const result = await integrationStatus();
+      const scopedResult = definition.id === 'android.adb.status' ? result.adb : result.sunshine;
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: scopedResult };
     }
     if (definition.id === 'system.lock') {
       const startedAt = performance.now();
