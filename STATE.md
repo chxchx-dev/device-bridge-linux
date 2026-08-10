@@ -3,8 +3,8 @@
 ```yaml
 project: DeviceBridge
 schema_version: 1
-current_phase: 2
-status: bridge_api_verified
+current_phase: 3
+status: web_console_in_progress
 
 nodes:
   fedora:
@@ -39,7 +39,7 @@ hardware:
 features:
   health_api: implemented
   command_registry: implemented
-  web_console: not_started
+  web_console: implemented_local
   mobile_console: not_started
   remote_access: tailnet_verified
   codex_cockpit: not_started
@@ -83,3 +83,4 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: Phase 1 exit criterion completed: Samsung paired through `/pair` over Tailscale and authenticated `/v1/device`; unpaired access test remains covered by automated tests.
 - 2026-08-09: Phase 2 local verification passed: typed action catalog, capability authorization, `system.status`, one-time R2 confirmation challenges, fixed `loginctl lock-session` adapter, structured audit fields, WebSocket event route, invalid-input tests and static safety checks.
 - 2026-08-09: Phase 2 safety decision: `system.lock` is disabled by default; enabling it requires explicit `DEVICEBRIDGE_ENABLE_SYSTEM_LOCK=true` plus the `system:lock` capability.
+- 2026-08-09: Phase 3 local console built with React/Vite: in-memory pairing session, Fedora status dashboard, typed action controls, R2 confirmation UI, WebSocket reconnect/backoff, error states and PWA manifest; tailnet/mobile-data acceptance remains pending.

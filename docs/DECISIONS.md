@@ -44,3 +44,11 @@ client for the pairing acceptance test. It keeps the returned device token in
 JavaScript memory only, never local storage, and performs the authenticated
 `/v1/device` check immediately. It is not the production mobile client and
 must be removed or replaced during Phase 3/4 hardening.
+
+## ADR-008 — Phase 3 browser session storage
+**Status:** Accepted for Phase 3
+
+The React console keeps the paired device token only in component memory. It
+does not use localStorage, cookies or URL parameters for credentials. A page
+refresh requires pairing again until the native Android client provides a
+dedicated secure storage strategy.

@@ -1,0 +1,9 @@
+{
+  "name": "DeviceBridge Console",
+  "short_name": "DeviceBridge",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#08111f",
+  "background_color": "#08111f",
+  "icons": []
+}
