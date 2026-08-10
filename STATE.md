@@ -3,8 +3,8 @@
 ```yaml
 project: DeviceBridge
 schema_version: 1
-current_phase: 1
-status: phase_1_connectivity_in_progress
+current_phase: 2
+status: bridge_api_in_progress
 
 nodes:
   fedora:
@@ -17,7 +17,7 @@ nodes:
     scrcpy: verified_usb
     kde_connect: paired_user_confirmed
   android:
-    paired: false
+    paired: true
     tailscale: online
     moonlight: unknown
     kde_connect: unknown
@@ -41,7 +41,7 @@ features:
   command_registry: not_started
   web_console: not_started
   mobile_console: not_started
-  remote_access: not_started
+  remote_access: tailnet_verified
   codex_cockpit: not_started
   mcp: not_started
   wake_on_lan: not_started
@@ -53,8 +53,7 @@ security:
   password_storage: forbidden
   unlock_policy: step_up_auth_required
 
-blockers:
-  - android_pairing_client_pending
+blockers: []
 last_verified: 2026-08-09
 ```
 
@@ -81,3 +80,4 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: WOL inventory recorded: active Wi-Fi interface `wlo1` exposes no `Supports Wake-on`/`Wake-on` capability; WOL remains disabled.
 - 2026-08-09: Sunshine installed from LizardByte COPR as `Sunshine-2026.516.143833-1.fc44.x86_64`; user service is active and streaming was manually verified from Samsung.
 - 2026-08-09: User manually verified successful Sunshine/Moonlight streaming from the Samsung over the configured private connection.
+- 2026-08-09: Phase 1 exit criterion completed: Samsung paired through `/pair` over Tailscale and authenticated `/v1/device`; unpaired access test remains covered by automated tests.

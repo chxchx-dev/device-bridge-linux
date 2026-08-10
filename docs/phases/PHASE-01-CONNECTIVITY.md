@@ -14,5 +14,5 @@ Create DeviceBridge-level device identity independent from KDE Connect/Tailscale
 - [x] Verify loopback-only bind.
 - [x] Test Tailscale Serve to loopback service.
 
-## Exit criteria
-A paired phone can authenticate over tailnet; an unpaired device cannot read machine details.
+## Exit criteria ✅
+A paired phone authenticated over tailnet through `/pair` and read `/v1/device`; unpaired access was rejected.
