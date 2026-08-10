@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+.DS_Store
+artifacts/*
+!artifacts/.gitkeep
+*.sqlite
+*.sqlite3
+.codex/session*

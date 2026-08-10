@@ -1,0 +1,20 @@
+[Unit]
+Description=DeviceBridge user control plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/devicebridge
+EnvironmentFile=%h/.config/devicebridge/devicebridge.env
+ExecStart=/usr/bin/npm run start -w @devicebridge/bridge-api
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/devicebridge
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,21 @@
+{
+  "name": "devicebridge",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:bridge": "pnpm --filter @devicebridge/bridge-api run dev",
+    "build": "pnpm --recursive --if-present run build",
+    "typecheck": "pnpm run build && pnpm --recursive --if-present run typecheck",
+    "lint": "pnpm run build && pnpm --recursive --if-present run lint",
+    "test": "pnpm --recursive --if-present run test",
+    "check:prereqs": "bash scripts/check-prereqs.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

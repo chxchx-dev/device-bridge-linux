@@ -1,0 +1,13 @@
+# Project-scoped Codex configuration.
+# Loaded only for trusted projects by Codex.
+
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[sandbox_workspace_write]
+network_access = false
+
+# Add DeviceBridge MCP only in Phase 07 after it exists and has passed security tests.
+# [mcp_servers.devicebridge]
+# command = "node"
+# args = ["services/mcp-server/dist/index.js"]
