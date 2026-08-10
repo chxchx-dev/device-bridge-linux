@@ -1,6 +1,7 @@
 # Android App — Phase 04
 
-Do not bootstrap React Native before Phase 03 exits successfully.
+React Native control node for DeviceBridge. Long-lived credentials must use
+Android secure storage; ADB debugging is developer-only trust.
 
 ## Target modules
 
@@ -11,23 +12,10 @@ src/
   pairing/
   events/
   features/
-    dashboard/
-    actions/
-    codex/
-    gaming/
-    files/
-    system/
   native/
   security/
 ```
 
-## Required native capabilities
-- secure credential storage;
-- biometric step-up abstraction;
-- network connectivity awareness;
-- deep links/app intents where supported;
-- QR scanner for pairing;
-- background notification strategy only if justified.
-
-## Root policy
-The app must not require root for baseline features.
+The baseline app must not require root. Pairing, secure credential storage,
+biometric step-up and authenticated API/event clients will be added in the
+next Phase 04 slices.

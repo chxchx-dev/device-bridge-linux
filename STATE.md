@@ -40,7 +40,7 @@ features:
   health_api: implemented
   command_registry: implemented
   web_console: phase_3_verified_tailnet
-  mobile_console: bootstrap_pending
+  mobile_console: bootstrap_verified
   remote_access: tailnet_verified
   codex_cockpit: not_started
   mcp: not_started
@@ -84,3 +84,4 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: Phase 2 local verification passed: typed action catalog, capability authorization, `system.status`, one-time R2 confirmation challenges, fixed `loginctl lock-session` adapter, structured audit fields, WebSocket event route, invalid-input tests and static safety checks.
 - 2026-08-09: Phase 2 safety decision: `system.lock` is disabled by default; enabling it requires explicit `DEVICEBRIDGE_ENABLE_SYSTEM_LOCK=true` plus the `system:lock` capability.
 - 2026-08-10: User confirmed Phase 3 acceptance from Samsung over mobile data: tailnet console opened, pairing completed, Fedora status loaded and `system.status` executed; Tailscale Serve remained tailnet-only.
+- 2026-08-10: Phase 4 bootstrap verified: React Native 0.86.2 app generated under `apps/mobile`, Jest/lint passed, debug APK built with a temporary JDK 17 under `/tmp`, installed and launched on Samsung `SM-A175F/DS` via ADB; secure pairing/storage work remains.
