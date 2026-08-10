@@ -14,7 +14,7 @@ Create a reproducible baseline and verify what the actual Fedora laptop + Androi
 - [x] Pair KDE Connect on local Wi-Fi. *(User confirmed pairing; D-Bus inspection unavailable in sandbox.)*
 - [x] Verify Tailscale on Fedora and Android.
 - [x] Install Codex CLI. *(Sign-in remains unverified.)*
-- [ ] Sign in to Codex CLI. *(CLI installed; login state not verified.)*
+- [x] Sign in to Codex CLI. *(Verified with `codex login --device-auth`.)*
 - [ ] Install/configure Sunshine only from an upstream-supported package.
 - [ ] Record hardware WOL capability; do not enable remote wake yet.
 
