@@ -16,6 +16,16 @@ test('health is public and does not expose machine details', async () => {
   await app.close();
 });
 
+test('temporary pairing client is available without embedding secrets', async () => {
+  const app = createApp({ pairingToken });
+  const response = await app.inject({ method: 'GET', url: '/pair' });
+
+  assert.equal(response.statusCode, 200);
+  assert.match(response.headers['content-type'] as string, /text\/html/);
+  assert.equal(response.body.includes(pairingToken), false);
+  await app.close();
+});
+
 test('unpaired device cannot read Fedora details', async () => {
   const app = createApp({ pairingToken });
   const response = await app.inject({ method: 'GET', url: '/v1/device' });

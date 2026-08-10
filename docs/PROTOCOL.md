@@ -17,6 +17,7 @@ X-Request-Id: <uuid>
 
 ```text
 GET  /health
+GET  /pair                 (temporary phase 1 bootstrap client)
 POST /v1/pairing/complete
 GET  /v1/device
 GET  /v1/actions

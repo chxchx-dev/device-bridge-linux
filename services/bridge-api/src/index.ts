@@ -5,6 +5,7 @@ import { actionRegistry } from '@devicebridge/command-registry';
 import { authenticate, type AuthContext } from './auth.js';
 import { PairingStore } from './pairing.js';
 import { readDeviceStatus } from './system.js';
+import { pairingPage } from './pairing-page.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -72,7 +73,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   app.addHook('onRequest', async (request, reply) => {
     request.requestId = randomUUID();
     reply.header('X-Request-Id', request.requestId);
-    if (request.url.split('?')[0] === '/health' || request.url.split('?')[0] === '/v1/pairing/complete') return;
+    if (request.url.split('?')[0] === '/health' || request.url.split('?')[0] === '/pair' || request.url.split('?')[0] === '/v1/pairing/complete') return;
 
     request.authContext = authenticate(request, store);
     if (!request.authContext) {
@@ -82,6 +83,8 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   });
 
   app.get('/health', async (request) => ({ requestId: request.requestId, status: 'ok', service: 'devicebridge' }));
+
+  app.get('/pair', async (_request, reply) => reply.type('text/html; charset=utf-8').send(pairingPage));
 
   app.post('/v1/pairing/complete', async (request, reply) => {
     const bodyResult = PairingRequestSchema.safeParse(request.body ?? {});

@@ -35,3 +35,12 @@ store is intentionally non-persistent; restarting the bridge invalidates all
 paired state unless a development seed token is configured. Production
 pairing persistence must move to SQLite with revocation and secret-rotation
 semantics before Phase 2 is released.
+
+## ADR-007 — Temporary browser pairing client
+**Status:** Accepted for Phase 1 bootstrap
+
+Until the native Android client exists, `/pair` provides a minimal browser
+client for the pairing acceptance test. It keeps the returned device token in
+JavaScript memory only, never local storage, and performs the authenticated
+`/v1/device` check immediately. It is not the production mobile client and
+must be removed or replaced during Phase 3/4 hardening.
