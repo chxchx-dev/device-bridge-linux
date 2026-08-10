@@ -151,6 +151,10 @@ test('scoped integration status actions enforce capabilities and return only the
   assert.equal(adb.statusCode, 200);
   assert.deepEqual(adb.json().result, { available: true, connected: true, deviceCount: 1 });
 
+  const kdeConnect = await app.inject({ method: 'POST', url: '/v1/actions/android.kdeconnect.status', headers, payload: {} });
+  assert.equal(kdeConnect.statusCode, 200);
+  assert.deepEqual(kdeConnect.json().result, { available: true, pairedReachable: true, deviceCount: 1 });
+
   const sunshine = await app.inject({ method: 'POST', url: '/v1/actions/gaming.sunshine.status', headers, payload: {} });
   assert.equal(sunshine.statusCode, 200);
   assert.deepEqual(sunshine.json().result, { available: true, active: false });

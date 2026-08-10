@@ -204,9 +204,9 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
     }
-    if (definition.id === 'android.adb.status' || definition.id === 'gaming.sunshine.status') {
+    if (definition.id === 'android.kdeconnect.status' || definition.id === 'android.adb.status' || definition.id === 'gaming.sunshine.status') {
       const result = await integrationStatus();
-      const scopedResult = definition.id === 'android.adb.status' ? result.adb : result.sunshine;
+      const scopedResult = definition.id === 'android.kdeconnect.status' ? result.kdeConnect : definition.id === 'android.adb.status' ? result.adb : result.sunshine;
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: scopedResult };
