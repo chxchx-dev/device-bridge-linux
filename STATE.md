@@ -11,11 +11,11 @@ nodes:
     paired: false
     tailscale: online
     bridge_api: implemented_local
-    codex: unknown
+    codex: installed_unverified_login
     sunshine: missing
     adb: verified_usb
     scrcpy: missing
-    kde_connect: installed_not_paired
+    kde_connect: paired_user_confirmed
   android:
     paired: false
     tailscale: online
@@ -54,12 +54,9 @@ security:
   unlock_policy: step_up_auth_required
 
 blockers:
-  - scrcpy_not_installed
   - sunshine_not_installed
-  - kde_connect_pairing_pending
   - wol_capability_not_verified
   - android_pairing_client_pending
-  - git_first_commit_pending_identity
   - codex_login_unverified
 last_verified: 2026-08-09
 ```
@@ -79,4 +76,7 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: Tailscale Serve active at `https://chxchxn-laptop.tail33e808.ts.net/`, tailnet-only, proxying to `127.0.0.1:8787`; Fedora HTTPS health check returned HTTP 200.
 - 2026-08-09: Samsung shell has no curl/wget, so automated HTTP-from-Android verification remains pending; Tailscale interface and bidirectional ICMP are verified.
 - 2026-08-09: Phase 00 audit: ADB/USB and Tailscale are verified; scrcpy, KDE Connect pairing, Sunshine, WOL and Codex sign-in remain pending.
-- 2026-08-09: Git repository initialized on `main`, but no commit exists because Git author identity is not configured.
+- 2026-08-09: Git repository initialized on `main`; initial commit status was later resolved as `d9abd3f`.
+- 2026-08-09: Phase 00 follow-up: `scrcpy 4.1` installed; Git first commit `d9abd3f` exists on `main` and worktree is clean.
+- 2026-08-09: User confirmed KDE Connect pairing; direct CLI verification was unavailable because this sandbox lacks the user D-Bus session.
+- 2026-08-09: Sunshine remains missing from the executable PATH; Codex CLI is installed but login state and WOL capability remain unverified.
