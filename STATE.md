@@ -73,6 +73,7 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: Bridge health responded locally and `ss` confirmed `127.0.0.1:8787`.
 - 2026-08-09: Tailscale Serve active at `https://chxchxn-laptop.tail33e808.ts.net/`, tailnet-only, proxying to `127.0.0.1:8787`; Fedora HTTPS health check returned HTTP 200.
 - 2026-08-09: Samsung shell has no curl/wget, so automated HTTP-from-Android verification remains pending; Tailscale interface and bidirectional ICMP are verified.
+- 2026-08-09: User confirmed `/health` returns `ok` from the Samsung over mobile data through Tailscale Serve; the previous 502 was caused by the Bridge process not running.
 - 2026-08-09: Phase 00 audit: ADB/USB and Tailscale are verified; scrcpy, KDE Connect pairing, Sunshine, WOL and Codex sign-in remain pending.
 - 2026-08-09: Git repository initialized on `main`; initial commit status was later resolved as `d9abd3f`.
 - 2026-08-09: Phase 00 follow-up: `scrcpy 4.1` installed; Git first commit `d9abd3f` exists on `main` and worktree is clean.
