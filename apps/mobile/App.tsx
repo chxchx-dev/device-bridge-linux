@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DEVICE_ID } from './src/config';
 import { BridgeClient, type Action, type DeviceStatus } from './src/api/bridge-client';
 import { connectBridgeEvents } from './src/events/bridge-events';
 import { clearSession, loadSession, saveSession, type StoredSession } from './src/security/credential-store';
+import { authenticateStepUp } from './src/security/biometric-step-up';
 
 const client = new BridgeClient();
 
@@ -42,12 +43,26 @@ export default function App() {
 
   const forget = async () => { await clearSession(); setSession(undefined); setStatus(undefined); setActions([]); setMessage('Session removed from secure storage.'); };
   const runStatus = async () => { if (!session) return; setBusy(true); try { await refresh(session); } catch (error) { setMessage(error instanceof Error ? error.message : 'Status failed'); } finally { setBusy(false); } };
+  const confirmAction = (action: Action): Promise<boolean> => new Promise((resolve) => Alert.alert('Confirm action', action.description, [{ text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Confirm', style: 'destructive', onPress: () => resolve(true) }]));
+  const runAction = async (action: Action) => {
+    if (!session) return;
+    setBusy(true); setMessage(`Preparing ${action.id}…`);
+    try {
+      if (action.confirmation === 'step-up') await authenticateStepUp('Confirm sensitive DeviceBridge action');
+      if (action.confirmation !== 'none' && !(await confirmAction(action))) { setMessage('Action cancelled.'); return; }
+      const challenge = action.confirmation !== 'none' ? await client.getChallenge(session, action.id) : undefined;
+      await client.runAction(session, action.id, challenge?.challengeId ?? null);
+      setMessage(`${action.id} completed.`); await refresh(session);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Action failed'); }
+    finally { setBusy(false); }
+  };
   const statusAction = useMemo(() => actions.find((action) => action.id === 'system.status'), [actions]);
+  const enabledActions = useMemo(() => actions.filter((action) => action.id !== 'system.status' && action.enabledByDefault), [actions]);
 
   return <View style={styles.container}>
     <StatusBar barStyle="light-content" />
     <Text style={styles.eyebrow}>PRIVATE TAILNET CONTROL</Text><Text style={styles.title}>DeviceBridge</Text>
-    {!session ? <View style={styles.card}><Text style={styles.heading}>Pair Android</Text><Text style={styles.body}>Device ID: {DEVICE_ID}</Text><TextInput value={pairingToken} onChangeText={setPairingToken} placeholder="Token largo o código de 6 dígitos" placeholderTextColor="#7890aa" secureTextEntry={!showPairingToken} autoCapitalize="none" autoCorrect={false} style={styles.input} /><Pressable onPress={() => setShowPairingToken((shown) => !shown)} style={styles.secondary}><Text style={styles.secondaryText}>{showPairingToken ? 'Ocultar token' : 'Mostrar token'}</Text></Pressable><Pressable disabled={busy || pairingToken.trim().length < 6} onPress={() => void pair()} style={styles.button}><Text style={styles.buttonText}>{busy ? 'Pairing…' : 'Pair device'}</Text></Pressable></View> : <View style={styles.card}><Text style={styles.heading}>Fedora status</Text>{status ? <><Text style={styles.body}>Host: {status.hostname}</Text><Text style={styles.body}>Platform: {status.platform}</Text><Text style={styles.body}>Memory: {Math.round((status.totalMemoryBytes - status.freeMemoryBytes) / 1024 / 1024)} / {Math.round(status.totalMemoryBytes / 1024 / 1024)} MB</Text></> : <Text style={styles.body}>Loading…</Text>}<Text style={styles.caption}>{statusAction?.description ?? 'Authenticated status action'}</Text><Pressable disabled={busy} onPress={() => void runStatus()} style={styles.button}><Text style={styles.buttonText}>Refresh status</Text></Pressable><Pressable onPress={() => void forget()} style={styles.secondary}><Text style={styles.secondaryText}>Forget secure session</Text></Pressable></View>}
+    {!session ? <View style={styles.card}><Text style={styles.heading}>Pair Android</Text><Text style={styles.body}>Device ID: {DEVICE_ID}</Text><TextInput value={pairingToken} onChangeText={setPairingToken} placeholder="Token largo o código de 6 dígitos" placeholderTextColor="#7890aa" secureTextEntry={!showPairingToken} autoCapitalize="none" autoCorrect={false} style={styles.input} /><Pressable onPress={() => setShowPairingToken((shown) => !shown)} style={styles.secondary}><Text style={styles.secondaryText}>{showPairingToken ? 'Ocultar token' : 'Mostrar token'}</Text></Pressable><Pressable disabled={busy || pairingToken.trim().length < 6} onPress={() => void pair()} style={styles.button}><Text style={styles.buttonText}>{busy ? 'Pairing…' : 'Pair device'}</Text></Pressable></View> : <View style={styles.card}><Text style={styles.heading}>Fedora status</Text>{status ? <><Text style={styles.body}>Host: {status.hostname}</Text><Text style={styles.body}>Platform: {status.platform}</Text><Text style={styles.body}>Memory: {Math.round((status.totalMemoryBytes - status.freeMemoryBytes) / 1024 / 1024)} / {Math.round(status.totalMemoryBytes / 1024 / 1024)} MB</Text></> : <Text style={styles.body}>Loading…</Text>}<Text style={styles.caption}>{statusAction?.description ?? 'Authenticated status action'}</Text><Pressable disabled={busy} onPress={() => void runStatus()} style={styles.button}><Text style={styles.buttonText}>Refresh status</Text></Pressable>{enabledActions.length === 0 ? <Text style={styles.caption}>No additional actions are enabled.</Text> : enabledActions.map((action) => <Pressable key={action.id} disabled={busy} onPress={() => void runAction(action)} style={styles.button}><Text style={styles.buttonText}>{action.description}</Text></Pressable>)}<Pressable onPress={() => void forget()} style={styles.secondary}><Text style={styles.secondaryText}>Forget secure session</Text></Pressable></View>}
     <Text style={styles.message}>{message}</Text>
   </View>;
 }

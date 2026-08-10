@@ -19,6 +19,8 @@ export type Action = {
   description: string;
 };
 
+export type ActionChallenge = { challengeId: string; actionId: string; expiresAt: string };
+
 type ErrorBody = { error?: { message?: string } };
 
 export class BridgeClient {
@@ -52,5 +54,16 @@ export class BridgeClient {
 
   getActions(session: StoredSession): Promise<{ actions: Action[] }> {
     return this.request('/v1/actions', session);
+  }
+
+  getChallenge(session: StoredSession, actionId: string): Promise<ActionChallenge> {
+    return this.request(`/v1/actions/${encodeURIComponent(actionId)}/challenge`, session);
+  }
+
+  runAction(session: StoredSession, actionId: string, challengeId: string | null = null): Promise<unknown> {
+    return this.request(`/v1/actions/${encodeURIComponent(actionId)}`, session, {
+      method: 'POST',
+      body: JSON.stringify({ input: {}, confirmation: challengeId ? { challengeId } : undefined }),
+    });
   }
 }

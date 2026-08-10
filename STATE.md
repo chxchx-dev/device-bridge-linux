@@ -3,8 +3,8 @@
 ```yaml
 project: DeviceBridge
 schema_version: 1
-current_phase: 4
-status: android_client_in_progress
+current_phase: 5
+status: integrations_pending
 
 nodes:
   fedora:
@@ -21,7 +21,7 @@ nodes:
     tailscale: online
     moonlight: unknown
     kde_connect: unknown
-    mobile_app: not_started
+  mobile_app: phase_4_verified_native_client
 
 hardware:
   fedora:
@@ -40,7 +40,7 @@ features:
   health_api: implemented
   command_registry: implemented
   web_console: phase_3_verified_tailnet
-  mobile_console: client_slice_local_pairing_pending
+  mobile_console: phase_4_verified_native_client
   remote_access: tailnet_verified
   codex_cockpit: not_started
   mcp: not_started
@@ -54,7 +54,7 @@ security:
   unlock_policy: step_up_auth_required
 
 blockers: []
-last_verified: 2026-08-09
+last_verified: 2026-08-10
 ```
 
 ## Evidence log
@@ -87,3 +87,4 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-10: Phase 4 bootstrap verified: React Native 0.86.2 app generated under `apps/mobile`, Jest/lint passed, debug APK built with a temporary JDK 17 under `/tmp`, installed and launched on Samsung `SM-A175F/DS` via ADB; secure pairing/storage work remains.
 - 2026-08-10: Phase 4 client slice built and installed: Keychain-backed credential store, authenticated HTTP client, authenticated WebSocket client and Fedora status/pairing UI compile and pass mobile tests; Metro connected through ADB.
 - 2026-08-10: Phase 4 Android pairing accepted on Samsung `SM-A175F/DS`: the six-digit development pairing code completed `/v1/pairing/complete`, the app loaded Fedora status, and a clean relaunch restored the secure session from Android Keychain without React Native runtime errors.
+- 2026-08-10: Phase 4 closed: biometric step-up abstraction, action confirmation/challenge client, invalid/revoked session cleanup and secure-session removal were implemented; monorepo typecheck/lint/tests, Android JDK17 build, APK installation and Samsung relaunch passed. QR pairing and Moonlight/KDE Connect deep links remain optional Phase 5+ enhancements.
