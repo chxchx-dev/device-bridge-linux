@@ -7,7 +7,7 @@ Orchestrate mature tools instead of rebuilding them.
 - [x] Read-only integration status adapter (KDE Connect, ADB, scrcpy and Sunshine).
 - [x] KDE Connect status; mutating actions remain disabled pending explicit adapters.
 - [x] ADB status and trusted-device checks.
-- [ ] scrcpy launch helper on Fedora.
+- [x] Opt-in scrcpy launch helper on Fedora with fixed arguments; arbitrary input remains rejected.
 - [x] Sunshine status; start/stop remains disabled pending a reversible service adapter.
 - [ ] Moonlight handoff/deep link research.
 - [ ] Docker service/project mode actions.

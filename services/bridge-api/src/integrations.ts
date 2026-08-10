@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -9,6 +10,25 @@ export type IntegrationStatus = {
   scrcpy: { available: boolean; version: string | null };
   sunshine: { available: boolean; active: boolean };
 };
+
+export type ScrcpyStartResult = { started: true; pid: number | null };
+
+function configuredScrcpyArgs(): string[] {
+  const serial = process.env.DEVICEBRIDGE_SCRCPY_SERIAL;
+  if (serial && /^[A-Za-z0-9._:-]+$/.test(serial)) return ['--serial', serial, '--no-audio', '--stay-awake'];
+  return ['--no-audio', '--stay-awake'];
+}
+
+export function startScrcpy(): Promise<ScrcpyStartResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('/usr/bin/scrcpy', configuredScrcpyArgs(), { detached: true, stdio: 'ignore' });
+    child.once('error', () => reject(new Error('scrcpy adapter failed')));
+    child.once('spawn', () => {
+      child.unref();
+      resolve({ started: true, pid: child.pid ?? null });
+    });
+  });
+}
 
 async function fixedCommand(file: string, args: readonly string[]): Promise<{ ok: boolean; stdout: string }> {
   try {

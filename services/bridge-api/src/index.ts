@@ -9,7 +9,7 @@ import { readDeviceStatus } from './system.js';
 import { pairingPage } from './pairing-page.js';
 import { ChallengeStore } from './challenges.js';
 import { createSystemSessionAdapter, type SessionAdapter } from './system-actions.js';
-import { readIntegrationStatus, type IntegrationStatus } from './integrations.js';
+import { readIntegrationStatus, startScrcpy, type IntegrationStatus, type ScrcpyStartResult } from './integrations.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -77,9 +77,11 @@ export interface AppOptions {
   pairingToken?: string;
   defaultCapabilities?: readonly string[];
   enableSystemLock?: boolean;
+  enableScrcpy?: boolean;
   challenges?: ChallengeStore;
   sessionAdapter?: SessionAdapter;
   integrationStatus?: () => Promise<IntegrationStatus>;
+  scrcpyStart?: () => Promise<ScrcpyStartResult>;
 }
 
 export function createApp(options: AppOptions = {}): FastifyInstance {
@@ -90,6 +92,8 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const sessionAdapter = options.sessionAdapter ?? createSystemSessionAdapter();
   const enableSystemLock = options.enableSystemLock ?? process.env.DEVICEBRIDGE_ENABLE_SYSTEM_LOCK === 'true';
   const integrationStatus = options.integrationStatus ?? readIntegrationStatus;
+  const scrcpyStart = options.scrcpyStart ?? startScrcpy;
+  const enableScrcpy = options.enableScrcpy ?? process.env.DEVICEBRIDGE_ENABLE_SCRCPY === 'true';
   const devDeviceId = options.devDeviceId ?? process.env.DEVICEBRIDGE_DEVICE_ID;
   const devToken = options.devToken ?? process.env.DEVICEBRIDGE_DEV_TOKEN;
   const pairingToken = options.pairingToken ?? process.env.DEVICEBRIDGE_PAIRING_TOKEN;
@@ -145,7 +149,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/v1/actions', async (request) => {
     audit(request, auditSink, 'accepted');
-    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : enabledByDefault, confirmation, description })) };
+    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : enabledByDefault, confirmation, description })) };
   });
 
   app.get('/v1/actions/:actionId/challenge', async (request, reply) => {
@@ -176,13 +180,13 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid action payload' } });
     }
     const definition = actionRegistry[idResult.data];
-    const enabled = definition.id === 'system.lock' ? enableSystemLock : definition.enabledByDefault;
     const hasCapability = request.authContext?.capabilities.includes(definition.capability) ?? false;
     if (!hasCapability) {
       audit(request, auditSink, 'rejected', 'insufficient_capability', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'denied', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'INSUFFICIENT_CAPABILITY', message: 'The paired device lacks the required capability' } });
     }
-    if (!enabled) {
+    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.enabledByDefault;
+    if (!actionEnabled) {
       audit(request, auditSink, 'rejected', 'action_disabled', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'ACTION_DISABLED', message: `${definition.id} is not enabled in the starter` } });
     }
@@ -210,6 +214,18 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: scopedResult };
+    }
+    if (definition.id === 'android.scrcpy.start') {
+      const startedAt = performance.now();
+      try {
+        const result = await scrcpyStart();
+        audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: performance.now() - startedAt });
+        events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
+        return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+      } catch {
+        audit(request, auditSink, 'failed', 'adapter_failed', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'failed', durationMs: performance.now() - startedAt });
+        return reply.code(502).send({ requestId: request.requestId, error: { code: 'ADAPTER_FAILED', message: 'The scrcpy adapter failed' } });
+      }
     }
     if (definition.id === 'system.lock') {
       const startedAt = performance.now();

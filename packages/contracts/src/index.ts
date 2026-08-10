@@ -7,6 +7,7 @@ export const ActionIdSchema = z.enum([
   'system.status',
   'integrations.status',
   'android.kdeconnect.status',
+  'android.scrcpy.start',
   'system.lock',
   'system.suspend',
   'system.shutdown',

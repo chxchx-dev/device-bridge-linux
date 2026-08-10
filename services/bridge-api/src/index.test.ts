@@ -161,6 +161,24 @@ test('scoped integration status actions enforce capabilities and return only the
   await app.close();
 });
 
+test('scrcpy start is opt-in and returns no process output to the client', async () => {
+  const token = 'device-token-for-scrcpy-test-1234567890';
+  const store = new PairingStore(['android:display']);
+  store.seedDevice(deviceId, token);
+  let calls = 0;
+  const app = createApp({ store, enableScrcpy: true, scrcpyStart: async () => { calls += 1; return { started: true, pid: 1234 }; } });
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/actions/android.scrcpy.start',
+    headers: { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId },
+    payload: { input: { command: 'ignored' } },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json().result, { started: true, pid: 1234 });
+  assert.equal(calls, 1);
+  await app.close();
+});
+
 test('invalid action IDs and payloads are rejected before execution', async () => {
   const token = 'device-token-for-input-test-1234567890';
   const store = new PairingStore(['system:read']);
