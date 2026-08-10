@@ -10,15 +10,117 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@react-native/assets-registry':
+        specifier: 0.86.2
+        version: 0.86.2
+      '@react-native/js-polyfills':
+        specifier: 0.86.2
+        version: 0.86.2
+      '@react-native/normalize-colors':
+        specifier: 0.86.2
+        version: 0.86.2
+      '@react-native/virtualized-lists':
+        specifier: 0.86.2
+        version: 0.86.2(@types/react@19.2.18)(react-native@0.86.2(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.2(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      abort-controller:
+        specifier: ^3.0.0
+        version: 3.0.0
+      anser:
+        specifier: ^1.4.10
+        version: 1.4.10
+      ansi-regex:
+        specifier: ^5.0.1
+        version: 5.0.1
+      ansi-styles:
+        specifier: ^4.3.0
+        version: 4.3.0
+      babel-plugin-syntax-hermes-parser:
+        specifier: 0.36.0
+        version: 0.36.0
+      base64-js:
+        specifier: ^1.5.1
+        version: 1.5.1
+      color-convert:
+        specifier: ^2.0.1
+        version: 2.0.1
+      color-name:
+        specifier: ^1.1.4
+        version: 1.1.4
+      commander:
+        specifier: ^12.1.0
+        version: 12.1.0
+      event-target-shim:
+        specifier: ^5.0.1
+        version: 5.0.1
+      flow-enums-runtime:
+        specifier: ^0.0.6
+        version: 0.0.6
+      hermes-compiler:
+        specifier: 250829098.0.16
+        version: 250829098.0.16
+      invariant:
+        specifier: ^2.2.4
+        version: 2.2.4
+      memoize-one:
+        specifier: 6.0.0
+        version: 6.0.0
+      metro-runtime:
+        specifier: ^0.84.4
+        version: 0.84.4
+      metro-source-map:
+        specifier: ^0.84.4
+        version: 0.84.4
+      nullthrows:
+        specifier: 1.1.1
+        version: 1.1.1
+      pretty-format:
+        specifier: ^29.7.0
+        version: 29.7.0
+      promise:
+        specifier: ^8.3.0
+        version: 8.3.0
       react:
         specifier: 19.2.3
         version: 19.2.3
+      react-devtools-core:
+        specifier: ^6.1.5
+        version: 6.1.5
+      react-is:
+        specifier: ^18.3.1
+        version: 18.3.1
       react-native:
         specifier: 0.86.2
         version: 0.86.2(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.2(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)
       react-native-keychain:
         specifier: ^10.0.0
         version: 10.0.0
+      react-refresh:
+        specifier: ^0.14.2
+        version: 0.14.2
+      regenerator-runtime:
+        specifier: ^0.13.11
+        version: 0.13.11
+      scheduler:
+        specifier: 0.27.0
+        version: 0.27.0
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
+      stacktrace-parser:
+        specifier: ^0.1.11
+        version: 0.1.11
+      tinyglobby:
+        specifier: ^0.2.17
+        version: 0.2.17
+      whatwg-fetch:
+        specifier: ^3.6.20
+        version: 3.6.20
+      ws:
+        specifier: ^7.5.13
+        version: 7.5.13
+      yargs:
+        specifier: ^17.7.3
+        version: 17.7.3
     devDependencies:
       '@babel/core':
         specifier: ^7.25.2
@@ -3093,6 +3195,9 @@ packages:
 
   memoize-one@5.2.1:
     resolution: {integrity: sha512-zYiwtZUcYyXKo/np96AGZAckk+FWWsUdJ3cHGGmld7+AhvcWmQyGCYUh1hc4Q/pkOhb65dQR/pqCyK0cOaHz4Q==}
+
+  memoize-one@6.0.0:
+    resolution: {integrity: sha512-rkpe71W0N0c0Xz6QD0eJETuWAJGnJ9afsl1srmwPrI+yBCkge5EycXXbYRyvL29zZVUWQCY7InPRCv3GDXuZNw==}
 
   merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
@@ -7871,6 +7976,8 @@ snapshots:
   media-typer@0.3.0: {}
 
   memoize-one@5.2.1: {}
+
+  memoize-one@6.0.0: {}
 
   merge-stream@2.0.0: {}
 
