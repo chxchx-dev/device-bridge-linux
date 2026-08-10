@@ -55,7 +55,6 @@ security:
 
 blockers:
   - sunshine_not_installed
-  - wol_capability_not_verified
   - android_pairing_client_pending
 last_verified: 2026-08-09
 ```
@@ -78,4 +77,6 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: Git repository initialized on `main`; initial commit status was later resolved as `d9abd3f`.
 - 2026-08-09: Phase 00 follow-up: `scrcpy 4.1` installed; Git first commit `d9abd3f` exists on `main` and worktree is clean.
 - 2026-08-09: User confirmed KDE Connect pairing; direct CLI verification was unavailable because this sandbox lacks the user D-Bus session.
-- 2026-08-09: Sunshine remains missing from the executable PATH; Codex CLI login was confirmed with `codex login --device-auth`; WOL capability remains unverified.
+- 2026-08-09: Sunshine remains missing from the executable PATH; Codex CLI login was confirmed with `codex login --device-auth`.
+- 2026-08-09: WOL inventory recorded: active Wi-Fi interface `wlo1` exposes no `Supports Wake-on`/`Wake-on` capability; WOL remains disabled.
+- 2026-08-09: Sunshine installation is pending because enabling the upstream LizardByte COPR requires the user's local sudo password.
