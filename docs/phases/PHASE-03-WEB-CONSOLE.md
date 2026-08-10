@@ -12,7 +12,7 @@ Get a useful control surface on the phone before native Android complexity.
 - [x] WebSocket reconnect/backoff.
 - [x] Offline/error states.
 - [x] Installable PWA shell.
-- [ ] Tailnet-only deployment.
+- [x] Tailnet-only deployment.
 
 ## Exit criteria
 From Android browser over mobile data, user can securely see Fedora state and execute a tested non-destructive action.
@@ -22,4 +22,4 @@ From Android browser over mobile data, user can securely see Fedora state and ex
 - `pnpm --filter @devicebridge/web-console run typecheck` — passed.
 - `pnpm --filter @devicebridge/web-console run build` — passed.
 
-The console keeps the device token in JavaScript memory only. Tailnet deployment and the Android mobile-data acceptance test remain pending.
+The console keeps the device token in JavaScript memory only. User acceptance completed from the Samsung over mobile data through the tailnet URL: pairing, Fedora status and `system.status` were confirmed. `system.lock` remained disabled by default.
