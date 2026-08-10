@@ -1,3 +1,5 @@
-export const BRIDGE_BASE_URL = 'https://chxchxn-laptop.tail33e808.ts.net';
-export const DEVICE_ID = 'android-a17-control';
+import localConfig from './config.local';
+
+export const BRIDGE_BASE_URL = localConfig.bridgeBaseUrl;
+export const DEVICE_ID = localConfig.deviceId;
 export const CREDENTIAL_SERVICE = 'com.devicebridgemobile.devicebridge';

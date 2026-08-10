@@ -11,3 +11,16 @@ artifacts/*
 *.sqlite
 *.sqlite3
 .codex/session*
+
+# Local operational state and machine-specific configuration.
+STATE.md
+STATE.local.md
+**/config.local.*
+!**/config.local.example.ts
+
+# Signing material and local certificates. Never commit release credentials.
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key

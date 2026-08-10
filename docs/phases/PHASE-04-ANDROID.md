@@ -27,13 +27,13 @@ Native app replaces PWA for daily control without weakening auth.
 - `pnpm --filter DeviceBridgeMobile test` — passed.
 - `pnpm --filter DeviceBridgeMobile lint` — passed.
 - `JAVA_HOME=/tmp/devicebridge-jdk17 ./gradlew assembleDebug` — passed.
-- Debug APK installed and launched on Samsung `SM-A175F/DS` over ADB.
+- Debug APK installed and launched on a development Android device over ADB.
 
 The portable JDK is a local build dependency only; Fedora's global Java 25 installation was not changed. The Samsung debug APK was rebuilt, installed and relaunched after the security client changes.
 
 The first implementation slice now contains those client boundaries and a
 working pairing/status UI. Pairing was manually confirmed on the Samsung
-`SM-A175F/DS` using the one-time six-digit development code. The client now
+the development device using the one-time six-digit development code. The client now
 uses Keychain-backed biometric step-up for sensitive actions, displays
 confirmation before challenges/actions, clears invalid or revoked sessions,
 and supports explicit secure-session removal. Deep-link and QR pairing are

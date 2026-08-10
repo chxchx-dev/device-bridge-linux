@@ -3,6 +3,13 @@
 React Native control node for DeviceBridge. Long-lived credentials must use
 Android secure storage; ADB debugging is developer-only trust.
 
+## Local configuration
+
+The real bridge URL is intentionally excluded from Git. Before running the
+mobile app, copy `src/config.local.example.ts` to `src/config.local.ts` and
+set the private tailnet URL and local device ID there. The local file is
+ignored by Git.
+
 ## Target modules
 
 ```text
