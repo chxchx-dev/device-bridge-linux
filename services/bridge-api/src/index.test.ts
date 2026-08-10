@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createApp } from './index.js';
 import { PairingStore } from './pairing.js';
+import { createSystemSessionAdapter } from './system-actions.js';
 
 const deviceId = 'android-a17-test';
 const pairingToken = 'pairing-token-for-tests-1234567890';
@@ -80,4 +81,93 @@ test('pairing token expires', () => {
   const store = new PairingStore();
   store.issuePairingToken(pairingToken, 0);
   assert.equal(store.completePairing(deviceId, pairingToken), undefined);
+});
+
+test('action catalog and status require the declared read capability', async () => {
+  const token = 'device-token-for-status-test-1234567890';
+  const store = new PairingStore(['system:read']);
+  store.seedDevice(deviceId, token);
+  const app = createApp({ store });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+
+  const catalog = await app.inject({ method: 'GET', url: '/v1/actions', headers });
+  assert.equal(catalog.statusCode, 200);
+  assert.equal(catalog.json().actions.find((action: { id: string }) => action.id === 'system.status').enabledByDefault, true);
+
+  const status = await app.inject({ method: 'POST', url: '/v1/actions/system.status', headers, payload: {} });
+  assert.equal(status.statusCode, 200);
+  assert.equal(status.json().actionId, 'system.status');
+  await app.close();
+});
+
+test('invalid action IDs and payloads are rejected before execution', async () => {
+  const token = 'device-token-for-input-test-1234567890';
+  const store = new PairingStore(['system:read']);
+  store.seedDevice(deviceId, token);
+  const app = createApp({ store });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+
+  const unknown = await app.inject({ method: 'POST', url: '/v1/actions/not-an-action', headers, payload: {} });
+  assert.equal(unknown.statusCode, 404);
+  assert.equal(unknown.json().error.code, 'UNKNOWN_ACTION');
+
+  const invalid = await app.inject({ method: 'POST', url: '/v1/actions/system.status', headers, payload: { input: 'not-an-object' } });
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(invalid.json().error.code, 'INVALID_INPUT');
+  await app.close();
+});
+
+test('R2 system.lock requires a capability and one-time confirmation challenge', async () => {
+  const token = 'device-token-for-lock-test-1234567890';
+  const store = new PairingStore(['system:read', 'system:lock']);
+  store.seedDevice(deviceId, token);
+  let lockCalls = 0;
+  const app = createApp({
+    store,
+    enableSystemLock: true,
+    sessionAdapter: { lock: async () => { lockCalls += 1; } },
+  });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+
+  const missing = await app.inject({ method: 'POST', url: '/v1/actions/system.lock', headers, payload: {} });
+  assert.equal(missing.statusCode, 409);
+  assert.equal(lockCalls, 0);
+
+  const challengeResponse = await app.inject({ method: 'GET', url: '/v1/actions/system.lock/challenge', headers });
+  assert.equal(challengeResponse.statusCode, 200);
+  const challenge = challengeResponse.json();
+  const executed = await app.inject({ method: 'POST', url: '/v1/actions/system.lock', headers, payload: { confirmation: { challengeId: challenge.challengeId } } });
+  assert.equal(executed.statusCode, 200);
+  assert.equal(lockCalls, 1);
+
+  const replay = await app.inject({ method: 'POST', url: '/v1/actions/system.lock', headers, payload: { confirmation: { challengeId: challenge.challengeId } } });
+  assert.equal(replay.statusCode, 409);
+  await app.close();
+});
+
+test('paired devices without system:lock cannot request an R2 challenge', async () => {
+  const token = 'device-token-without-lock-capability-123456';
+  const store = new PairingStore(['system:read']);
+  store.seedDevice(deviceId, token);
+  const app = createApp({ store, enableSystemLock: true });
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/actions/system.lock/challenge',
+    headers: { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId },
+  });
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.json().error.code, 'INSUFFICIENT_CAPABILITY');
+  await app.close();
+});
+
+test('system lock adapter invokes only the fixed loginctl action', async () => {
+  let receivedFile = '';
+  let receivedArgs: readonly string[] = [];
+  const adapter = createSystemSessionAdapter(async (file, args) => {
+    receivedFile = file;
+    receivedArgs = args;
+  });
+  await adapter.lock();
+  assert.equal(receivedFile, '/usr/bin/loginctl');
+  assert.deepEqual(receivedArgs, ['lock-session']);
 });

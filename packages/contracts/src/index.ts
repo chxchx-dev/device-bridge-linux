@@ -56,6 +56,19 @@ export const AuditEventSchema = z.object({
   method: z.string().min(1),
   path: z.string().min(1),
   outcome: z.enum(['accepted', 'rejected', 'failed']),
+  actionId: ActionIdSchema.nullable().optional(),
+  risk: RiskClassSchema.nullable().optional(),
+  capability: z.string().min(1).nullable().optional(),
+  authorization: z.enum(['granted', 'denied', 'not_required']).optional(),
+  executionStatus: z.enum(['not_run', 'completed', 'failed']).optional(),
+  durationMs: z.number().nonnegative().optional(),
   reason: z.string().min(1).optional(),
 });
 export type AuditEvent = z.infer<typeof AuditEventSchema>;
+
+export const ActionChallengeSchema = z.object({
+  challengeId: z.string().uuid(),
+  actionId: ActionIdSchema,
+  expiresAt: z.string().datetime(),
+});
+export type ActionChallenge = z.infer<typeof ActionChallengeSchema>;

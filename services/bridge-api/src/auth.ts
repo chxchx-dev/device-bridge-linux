@@ -4,6 +4,7 @@ import { PairingStore } from './pairing.js';
 
 export interface AuthContext {
   deviceId: string;
+  capabilities: readonly string[];
 }
 
 export function authenticate(request: FastifyRequest, store: PairingStore): AuthContext | undefined {
@@ -13,5 +14,5 @@ export function authenticate(request: FastifyRequest, store: PairingStore): Auth
 
   const token = authorization.slice('Bearer '.length);
   if (!token || !store.authenticate(deviceIdResult.data, token)) return undefined;
-  return { deviceId: deviceIdResult.data };
+  return { deviceId: deviceIdResult.data, capabilities: store.capabilities(deviceIdResult.data) };
 }

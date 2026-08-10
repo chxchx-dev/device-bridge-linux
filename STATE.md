@@ -4,13 +4,13 @@
 project: DeviceBridge
 schema_version: 1
 current_phase: 2
-status: bridge_api_in_progress
+status: bridge_api_verified
 
 nodes:
   fedora:
     paired: false
     tailscale: online
-    bridge_api: implemented_local
+    bridge_api: phase_2_verified_local
     codex: installed_login_verified
     sunshine: verified_tailnet_streaming
     adb: verified_usb
@@ -38,7 +38,7 @@ hardware:
 
 features:
   health_api: implemented
-  command_registry: not_started
+  command_registry: implemented
   web_console: not_started
   mobile_console: not_started
   remote_access: tailnet_verified
@@ -81,3 +81,5 @@ Add dated evidence here. Do not mark items complete only because code exists.
 - 2026-08-09: Sunshine installed from LizardByte COPR as `Sunshine-2026.516.143833-1.fc44.x86_64`; user service is active and streaming was manually verified from Samsung.
 - 2026-08-09: User manually verified successful Sunshine/Moonlight streaming from the Samsung over the configured private connection.
 - 2026-08-09: Phase 1 exit criterion completed: Samsung paired through `/pair` over Tailscale and authenticated `/v1/device`; unpaired access test remains covered by automated tests.
+- 2026-08-09: Phase 2 local verification passed: typed action catalog, capability authorization, `system.status`, one-time R2 confirmation challenges, fixed `loginctl lock-session` adapter, structured audit fields, WebSocket event route, invalid-input tests and static safety checks.
+- 2026-08-09: Phase 2 safety decision: `system.lock` is disabled by default; enabling it requires explicit `DEVICEBRIDGE_ENABLE_SYSTEM_LOCK=true` plus the `system:lock` capability.

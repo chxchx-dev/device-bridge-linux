@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
+import websocket from '@fastify/websocket';
 import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, DeviceIdSchema, PairingRequestSchema } from '@devicebridge/contracts';
 import { actionRegistry } from '@devicebridge/command-registry';
 import { authenticate, type AuthContext } from './auth.js';
 import { PairingStore } from './pairing.js';
 import { readDeviceStatus } from './system.js';
 import { pairingPage } from './pairing-page.js';
+import { ChallengeStore } from './challenges.js';
+import { createSystemSessionAdapter, type SessionAdapter } from './system-actions.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -32,7 +35,16 @@ class InMemoryAuditSink implements AuditSink {
   }
 }
 
-function audit(request: { requestId: string; method: string; url: string; authContext?: AuthContext }, sink: AuditSink, outcome: 'accepted' | 'rejected' | 'failed', reason?: string): void {
+interface AuditDetails {
+  actionId?: string | null;
+  risk?: string | null;
+  capability?: string | null;
+  authorization?: 'granted' | 'denied' | 'not_required';
+  executionStatus?: 'not_run' | 'completed' | 'failed';
+  durationMs?: number;
+}
+
+function audit(request: { requestId: string; method: string; url: string; authContext?: AuthContext }, sink: AuditSink, outcome: 'accepted' | 'rejected' | 'failed', reason?: string, details: AuditDetails = {}): void {
   sink.append({
     timestamp: new Date().toISOString(),
     requestId: request.requestId,
@@ -40,8 +52,20 @@ function audit(request: { requestId: string; method: string; url: string; authCo
     method: request.method,
     path: request.url.split('?')[0],
     outcome,
+    ...details,
     ...(reason ? { reason } : {}),
   });
+}
+
+class EventHub {
+  private readonly clients = new Set<{ send(data: string): void }>();
+
+  add(client: { send(data: string): void }): void { this.clients.add(client); }
+  remove(client: { send(data: string): void }): void { this.clients.delete(client); }
+  publish(type: string, payload: unknown): void {
+    const event = JSON.stringify({ type, timestamp: new Date().toISOString(), payload });
+    for (const client of this.clients) client.send(event);
+  }
 }
 
 export interface AppOptions {
@@ -50,11 +74,19 @@ export interface AppOptions {
   devToken?: string;
   devDeviceId?: string;
   pairingToken?: string;
+  defaultCapabilities?: readonly string[];
+  enableSystemLock?: boolean;
+  challenges?: ChallengeStore;
+  sessionAdapter?: SessionAdapter;
 }
 
 export function createApp(options: AppOptions = {}): FastifyInstance {
-  const store = options.store ?? new PairingStore();
+  const defaultCapabilities = options.defaultCapabilities ?? (process.env.DEVICEBRIDGE_DEFAULT_CAPABILITIES?.split(',').map((capability) => capability.trim()).filter(Boolean) ?? ['system:read']);
+  const store = options.store ?? new PairingStore(defaultCapabilities);
   const auditSink = options.auditSink ?? new InMemoryAuditSink();
+  const challenges = options.challenges ?? new ChallengeStore();
+  const sessionAdapter = options.sessionAdapter ?? createSystemSessionAdapter();
+  const enableSystemLock = options.enableSystemLock ?? process.env.DEVICEBRIDGE_ENABLE_SYSTEM_LOCK === 'true';
   const devDeviceId = options.devDeviceId ?? process.env.DEVICEBRIDGE_DEVICE_ID;
   const devToken = options.devToken ?? process.env.DEVICEBRIDGE_DEV_TOKEN;
   const pairingToken = options.pairingToken ?? process.env.DEVICEBRIDGE_PAIRING_TOKEN;
@@ -67,6 +99,8 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   }
 
   const app = Fastify({ logger: true });
+  const events = new EventHub();
+  void app.register(websocket);
   app.decorate('devicebridgePairingStore', store);
   app.decorate('devicebridgeAuditSink', auditSink);
 
@@ -108,7 +142,22 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/v1/actions', async (request) => {
     audit(request, auditSink, 'accepted');
-    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault, confirmation, description })) };
+    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : enabledByDefault, confirmation, description })) };
+  });
+
+  app.get('/v1/actions/:actionId/challenge', async (request, reply) => {
+    const params = request.params as { actionId?: string };
+    const idResult = ActionIdSchema.safeParse(params.actionId);
+    if (!idResult.success) return reply.code(404).send({ requestId: request.requestId, error: { code: 'UNKNOWN_ACTION', message: 'Unknown action ID' } });
+    const definition = actionRegistry[idResult.data];
+    if (!request.authContext?.capabilities.includes(definition.capability)) {
+      audit(request, auditSink, 'rejected', 'insufficient_capability', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'denied', executionStatus: 'not_run' });
+      return reply.code(403).send({ requestId: request.requestId, error: { code: 'INSUFFICIENT_CAPABILITY', message: 'The paired device lacks the required capability' } });
+    }
+    if (definition.confirmation === 'none') return reply.code(400).send({ requestId: request.requestId, error: { code: 'CHALLENGE_NOT_REQUIRED', message: 'This action does not require confirmation' } });
+    const challenge = challenges.issue(request.authContext.deviceId, definition.id);
+    audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
+    return { requestId: request.requestId, ...challenge, actionId: definition.id };
   });
 
   app.post('/v1/actions/:actionId', async (request, reply) => {
@@ -124,16 +173,50 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid action payload' } });
     }
     const definition = actionRegistry[idResult.data];
-    if (!definition.enabledByDefault) {
-      audit(request, auditSink, 'rejected', 'action_disabled');
+    const enabled = definition.id === 'system.lock' ? enableSystemLock : definition.enabledByDefault;
+    const hasCapability = request.authContext?.capabilities.includes(definition.capability) ?? false;
+    if (!hasCapability) {
+      audit(request, auditSink, 'rejected', 'insufficient_capability', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'denied', executionStatus: 'not_run' });
+      return reply.code(403).send({ requestId: request.requestId, error: { code: 'INSUFFICIENT_CAPABILITY', message: 'The paired device lacks the required capability' } });
+    }
+    if (!enabled) {
+      audit(request, auditSink, 'rejected', 'action_disabled', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'ACTION_DISABLED', message: `${definition.id} is not enabled in the starter` } });
     }
+    if (definition.confirmation !== 'none') {
+      const challengeId = bodyResult.data.confirmation?.challengeId;
+      if (!challengeId || !challenges.consume(request.authContext!.deviceId, definition.id, challengeId)) {
+        audit(request, auditSink, 'rejected', 'confirmation_required', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
+        return reply.code(409).send({ requestId: request.requestId, error: { code: 'CONFIRMATION_REQUIRED', message: 'A valid short-lived confirmation challenge is required' } });
+      }
+    }
     if (definition.id === 'system.status') {
-      audit(request, auditSink, 'accepted');
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: readDeviceStatus() };
     }
-    audit(request, auditSink, 'rejected', 'not_implemented');
+    if (definition.id === 'system.lock') {
+      const startedAt = performance.now();
+      try {
+        await sessionAdapter.lock();
+        const durationMs = performance.now() - startedAt;
+        audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs });
+        events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
+        return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: null };
+      } catch {
+        const durationMs = performance.now() - startedAt;
+        audit(request, auditSink, 'failed', 'adapter_failed', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'failed', durationMs });
+        return reply.code(502).send({ requestId: request.requestId, error: { code: 'ADAPTER_FAILED', message: 'The system lock adapter failed' } });
+      }
+    }
+    audit(request, auditSink, 'rejected', 'not_implemented', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
     return reply.code(501).send({ requestId: request.requestId, error: { code: 'NOT_IMPLEMENTED', message: 'Adapter not implemented' } });
+  });
+
+  app.get('/v1/ws', { websocket: true }, (socket, request) => {
+    events.add(socket);
+    socket.send(JSON.stringify({ type: 'bridge.connected', timestamp: new Date().toISOString(), payload: { requestId: request.requestId } }));
+    socket.on('close', () => events.remove(socket));
   });
 
   return app;

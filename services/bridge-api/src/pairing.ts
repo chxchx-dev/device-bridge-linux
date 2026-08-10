@@ -7,6 +7,7 @@ interface DeviceRecord {
   revoked: boolean;
   createdAt: string;
   expiresAt: number;
+  capabilities: readonly string[];
 }
 
 interface PairingRecord {
@@ -35,13 +36,16 @@ export class PairingStore {
   private readonly devices = new Map<DeviceId, DeviceRecord>();
   private pairing: PairingRecord | undefined;
 
-  seedDevice(deviceId: DeviceId, token: string): void {
+  constructor(private readonly defaultCapabilities: readonly string[] = ['system:read']) {}
+
+  seedDevice(deviceId: DeviceId, token: string, capabilities = this.defaultCapabilities): void {
     this.devices.set(deviceId, {
       deviceId,
       tokenHash: hashSecret(token),
       revoked: false,
       createdAt: new Date().toISOString(),
       expiresAt: Number.MAX_SAFE_INTEGER,
+      capabilities: [...capabilities],
     });
   }
 
@@ -51,7 +55,7 @@ export class PairingStore {
     return new Date(expiresAt).toISOString();
   }
 
-  completePairing(deviceId: DeviceId, token: string): PairingResult | undefined {
+  completePairing(deviceId: DeviceId, token: string, capabilities = this.defaultCapabilities): PairingResult | undefined {
     const pairing = this.pairing;
     if (!pairing || pairing.consumed || pairing.expiresAt <= Date.now()) return undefined;
     if (!equalHash(pairing.tokenHash, hashSecret(token))) return undefined;
@@ -65,6 +69,7 @@ export class PairingStore {
       revoked: false,
       createdAt: new Date().toISOString(),
       expiresAt,
+      capabilities: [...capabilities],
     });
     return { deviceId, deviceToken, expiresAt: new Date(expiresAt).toISOString() };
   }
@@ -72,6 +77,10 @@ export class PairingStore {
   authenticate(deviceId: DeviceId, token: string): boolean {
     const device = this.devices.get(deviceId);
     return Boolean(device && !device.revoked && device.expiresAt > Date.now() && equalHash(device.tokenHash, hashSecret(token)));
+  }
+
+  capabilities(deviceId: DeviceId): readonly string[] {
+    return this.devices.get(deviceId)?.capabilities ?? [];
   }
 
   revoke(deviceId: DeviceId): boolean {
