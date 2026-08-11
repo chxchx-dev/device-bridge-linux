@@ -131,4 +131,11 @@ export class BridgeClient {
       body: JSON.stringify({ input: {}, confirmation: challengeId ? { challengeId } : undefined }),
     });
   }
+
+  rotateSession(session: StoredSession, challengeId: string): Promise<{ result: StoredSession }> {
+    return this.request('/v1/actions/system.session.rotate', session, {
+      method: 'POST',
+      body: JSON.stringify({ input: {}, confirmation: { challengeId } }),
+    });
+  }
 }

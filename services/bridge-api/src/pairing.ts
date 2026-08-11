@@ -119,6 +119,16 @@ export class PairingStore {
     return true;
   }
 
+  rotate(deviceId: DeviceId): PairingResult | undefined {
+    const device = this.devices.get(deviceId);
+    if (!device || device.revoked || device.expiresAt <= Date.now()) return undefined;
+    const deviceToken = randomBytes(32).toString('base64url');
+    const expiresAt = Date.now() + 365 * 24 * 60 * 60 * 1000;
+    const rotated: DeviceRecord = { ...device, tokenHash: hashSecret(deviceToken), createdAt: new Date().toISOString(), expiresAt };
+    this.saveDevice(rotated);
+    return { deviceId, deviceToken, expiresAt: new Date(expiresAt).toISOString() };
+  }
+
   isRevoked(deviceId: DeviceId): boolean {
     return this.devices.get(deviceId)?.revoked ?? false;
   }

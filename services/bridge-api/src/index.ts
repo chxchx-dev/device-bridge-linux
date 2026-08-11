@@ -315,6 +315,16 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: application.deviceStatus() };
     }
+    if (definition.id === 'system.session.rotate') {
+      const rotated = store.rotate(request.authContext!.deviceId);
+      if (!rotated) {
+        audit(request, auditSink, 'failed', 'session_rotation_failed', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'failed', durationMs: 0 });
+        return reply.code(502).send({ requestId: request.requestId, error: { code: 'SESSION_ROTATION_FAILED', message: 'The current session could not be rotated' } });
+      }
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: rotated };
+    }
     if (definition.id === 'mode.status') {
       const result = application.modeStatus();
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });

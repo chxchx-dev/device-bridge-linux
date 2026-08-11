@@ -9,7 +9,7 @@ Turn the project into a maintainable daily-use system.
 - [x] Secret scan (no high-confidence tracked secrets; `.env.example` contains placeholders only).
 - [x] Rate limiting (pairing, authentication failures and authenticated action requests; bounded in-memory windows).
 - [x] Replay protection (one-time, short-lived confirmation challenges; replay test passes).
-- [ ] Device revocation UX.
+- [x] Device revocation UX: Android can forget its local session and rotate its own server token with biometric step-up and a one-time R2 challenge.
 - [ ] Audit log rotation.
 - [ ] SELinux compatibility review.
 - [ ] firewalld verification.

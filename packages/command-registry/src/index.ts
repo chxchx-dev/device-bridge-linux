@@ -11,6 +11,7 @@ export interface ActionDefinition {
 
 export const actionRegistry: Readonly<Record<ActionId, ActionDefinition>> = {
   'system.status': { id: 'system.status', risk: 'R0', capability: 'system:read', enabledByDefault: true, confirmation: 'none', description: 'Read basic Fedora status' },
+  'system.session.rotate': { id: 'system.session.rotate', risk: 'R2', capability: 'system:read', enabledByDefault: true, confirmation: 'step-up', description: 'Rotate this device session token' },
   'mode.status': { id: 'mode.status', risk: 'R0', capability: 'mode:read', enabledByDefault: true, confirmation: 'none', description: 'Read active DeviceBridge mode' },
   'mode.switch': { id: 'mode.switch', risk: 'R1', capability: 'mode:control', enabledByDefault: false, confirmation: 'required', description: 'Switch between Dev Mode and Game Mode' },
   'integrations.status': { id: 'integrations.status', risk: 'R0', capability: 'system:read', enabledByDefault: true, confirmation: 'none', description: 'Read KDE Connect, ADB, scrcpy and Sunshine status' },

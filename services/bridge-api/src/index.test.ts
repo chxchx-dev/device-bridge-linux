@@ -97,6 +97,32 @@ test('revoked device token is denied', () => {
   assert.equal(store.isRevoked(deviceId), true);
 });
 
+test('session rotation invalidates the previous token and returns only the replacement', () => {
+  const store = new PairingStore(['system:read']);
+  const token = 'device-token-for-rotation-test-1234567890';
+  store.seedDevice(deviceId, token);
+  const rotated = store.rotate(deviceId);
+  assert.equal(typeof rotated?.deviceToken, 'string');
+  assert.equal(store.authenticate(deviceId, token), false);
+  assert.equal(store.authenticate(deviceId, rotated!.deviceToken), true);
+});
+
+test('session rotation is an audited confirmed action', async () => {
+  const store = new PairingStore(['system:read']);
+  const token = 'device-token-for-rotation-route-test-1234567890';
+  store.seedDevice(deviceId, token);
+  const app = createApp({ store });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+  const challenge = await app.inject({ method: 'GET', url: '/v1/actions/system.session.rotate/challenge', headers });
+  assert.equal(challenge.statusCode, 200);
+  const response = await app.inject({ method: 'POST', url: '/v1/actions/system.session.rotate', headers, payload: { confirmation: { challengeId: challenge.json().challengeId } } });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().result.deviceToken.length >= 32, true);
+  const oldToken = await app.inject({ method: 'GET', url: '/v1/device', headers });
+  assert.equal(oldToken.statusCode, 401);
+  await app.close();
+});
+
 test('paired device hashes survive a Bridge restart through SQLite', () => {
   const directory = mkdtempSync(join(tmpdir(), 'devicebridge-pairing-'));
   const filename = join(directory, 'state.sqlite');

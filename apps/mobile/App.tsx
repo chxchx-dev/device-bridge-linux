@@ -126,9 +126,27 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const rotateSession = async () => {
+    if (!session) return;
+    const action = actions.find((candidate) => candidate.id === 'system.session.rotate');
+    if (!action) return;
+    setBusy(true);
+    try {
+      await authenticateStepUp('Rotate DeviceBridge session');
+      if (!(await confirmAction(action))) return;
+      const challenge = await client.getChallenge(session, action.id);
+      const rotated = (await client.rotateSession(session, challenge.challengeId)).result;
+      await saveSession(rotated);
+      setSession(rotated);
+      setMessage('Secure session rotated.');
+      await refresh(rotated);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Session rotation failed'); }
+    finally { setBusy(false); }
+  };
+
   const statusAction = useMemo(() => actions.find((action) => action.id === 'system.status'), [actions]);
   const modeSwitchAction = useMemo(() => actions.find((action) => action.id === 'mode.switch'), [actions]);
-  const enabledActions = useMemo(() => actions.filter((action) => !['system.status', 'mode.status', 'mode.switch', 'codex.status', 'codex.threads.list', 'codex.thread.start', 'codex.turn.start', 'codex.approvals.list', 'codex.approval.respond'].includes(action.id) && action.enabledByDefault), [actions]);
+  const enabledActions = useMemo(() => actions.filter((action) => !['system.status', 'system.session.rotate', 'mode.status', 'mode.switch', 'codex.status', 'codex.threads.list', 'codex.thread.start', 'codex.turn.start', 'codex.approvals.list', 'codex.approval.respond'].includes(action.id) && action.enabledByDefault), [actions]);
 
   return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <StatusBar barStyle="light-content" />
@@ -142,6 +160,7 @@ export default function App() {
       </View> : null}
       {modeSwitchAction ? <View style={styles.modePanel}><Text style={styles.heading}>Control mode</Text><Text style={styles.body}>Current: {modeStatus?.mode ? modeStatus.mode === 'dev' ? 'Dev' : 'Game' : 'Unknown'}</Text><View style={styles.modeRow}><Pressable disabled={busy || !modeSwitchAction.enabledByDefault} onPress={() => void switchMode('dev')} style={styles.modeButton}><Text style={styles.buttonText}>Dev Mode</Text></Pressable><Pressable disabled={busy || !modeSwitchAction.enabledByDefault} onPress={() => void switchMode('game')} style={styles.modeButton}><Text style={styles.buttonText}>Game Mode</Text></Pressable></View>{!modeSwitchAction.enabledByDefault ? <Text style={styles.caption}>Modes disabled on Fedora.</Text> : null}</View> : null}
       {enabledActions.map((action) => <View key={action.id}><Pressable disabled={busy} onPress={() => action.id === 'integrations.status' ? void runIntegrationStatus() : void runAction(action)} style={styles.button}><Text style={styles.buttonText}>{action.description}</Text></Pressable>{action.id === 'integrations.status' && integrationStatus ? <Text style={styles.caption}>KDE Connect: {integrationStatus.kdeConnect.pairedReachable ? 'paired/reachable' : 'unavailable'} · ADB: {integrationStatus.adb.connected ? `${integrationStatus.adb.deviceCount} connected` : 'disconnected'} · scrcpy: {integrationStatus.scrcpy.available ? integrationStatus.scrcpy.version ?? 'available' : 'unavailable'} · Sunshine: {integrationStatus.sunshine.active ? 'active' : 'inactive'}</Text> : null}</View>)}
+      {actions.some((action) => action.id === 'system.session.rotate' && action.enabledByDefault) ? <Pressable disabled={busy} onPress={() => void rotateSession()} style={styles.secondary}><Text style={styles.secondaryText}>Rotate secure session</Text></Pressable> : null}
       <Pressable onPress={() => void forget()} style={styles.secondary}><Text style={styles.secondaryText}>Forget secure session</Text></Pressable>
     </View>}
     <Text style={styles.message}>{message}</Text>
