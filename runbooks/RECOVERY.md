@@ -16,3 +16,13 @@
 
 ## Locked out of DeviceBridge
 Use local Fedora access to revoke/reset DeviceBridge pairing. DeviceBridge must never become the only way to administer the laptop.
+
+## SQLite state backup
+Use SQLite's online backup operation while the services remain running, then
+run `PRAGMA integrity_check` on each copy. Back up only the local state files:
+
+- `.local/state/devicebridge/state.sqlite`
+- `.local/state/devicebridge/codex.sqlite`
+
+Keep backup copies outside Git with owner-only permissions. Do not back up
+`.env`, bearer tokens or Codex credentials.

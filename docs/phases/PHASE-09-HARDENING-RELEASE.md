@@ -11,10 +11,10 @@ Turn the project into a maintainable daily-use system.
 - [x] Replay protection (one-time, short-lived confirmation challenges; replay test passes).
 - [x] Device revocation UX: Android can forget its local session and rotate its own server token with biometric step-up and a one-time R2 challenge.
 - [x] Audit log rotation (MCP JSONL audit is capped at 1 MiB with one restrictive-permission rotated file).
-- [ ] SELinux compatibility review.
-- [ ] firewalld verification.
+- [x] SELinux compatibility review (enforcing/targeted; services healthy).
+- [x] firewalld verification (active; no DeviceBridge public rule; existing broad Fedora rules remain documented for separate review).
 - [x] systemd hardening directives (no new privileges, private temp, read-only system/home with narrow write exceptions; services verified healthy).
-- [ ] backup/recovery test.
+- [x] backup/recovery test (SQLite online backups passed integrity checks for Bridge state and Codex metadata).
 - [ ] lost-phone drill.
 - [ ] reboot/reconnect test.
 - [ ] versioned release notes.
