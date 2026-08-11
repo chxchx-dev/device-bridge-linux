@@ -25,4 +25,5 @@ Make DeviceBridge a first-class typed tool provider.
 - [x] Pre-flight health checks.
 
 ## Exit criteria
-Codex can use DeviceBridge capabilities without shell access.
+- [x] Codex can use DeviceBridge capabilities without shell access.
+- [x] Compiled MCP live verification passed: 12 typed tools advertised, pre-flight passed, safe status action returned structured data, and mode/suspend writes were denied with the default read-only capabilities.
