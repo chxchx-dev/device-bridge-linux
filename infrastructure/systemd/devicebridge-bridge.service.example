@@ -1,0 +1,18 @@
+[Unit]
+Description=DeviceBridge local bridge API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/devicebridge
+EnvironmentFile=%h/devicebridge/.env
+Environment=DEVICEBRIDGE_ENABLE_MODES=true
+ExecStart=/usr/bin/pnpm --filter @devicebridge/bridge-api exec tsx src/index.ts
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
