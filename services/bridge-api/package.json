@@ -8,7 +8,8 @@
     "./integrations": { "types": "./dist/integrations.d.ts", "import": "./dist/integrations.js" },
     "./system": { "types": "./dist/system.d.ts", "import": "./dist/system.js" },
     "./modes": { "types": "./dist/modes.d.ts", "import": "./dist/modes.js" },
-    "./local-services": { "types": "./dist/local-services.d.ts", "import": "./dist/local-services.js" }
+    "./local-services": { "types": "./dist/local-services.d.ts", "import": "./dist/local-services.js" },
+    "./application": { "types": "./dist/application.d.ts", "import": "./dist/application.js" }
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

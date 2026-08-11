@@ -16,7 +16,7 @@ Make DeviceBridge a first-class typed tool provider.
 ## Rules
 - Tool descriptions must state side effects.
 - R2/R3 tools require approval/challenge behavior.
-- MCP calls use the same authorization/application services as HTTP.
+- [x] MCP and HTTP now call the shared typed `DeviceBridgeApplication` service for status, integrations, pre-flight and mode transitions.
 
 ## Automations
 - [x] Work mode (pre-flight + confirmed orchestration).

@@ -17,6 +17,15 @@ async function controlWebConsole(operation: 'start' | 'stop'): Promise<void> {
   }
 }
 
+export async function isWebConsoleActive(): Promise<boolean> {
+  try {
+    const result = await execFileAsync('/usr/bin/systemctl', ['--user', 'is-active', WEB_CONSOLE_SERVICE], { timeout: 10_000, maxBuffer: 16 * 1024 });
+    return result.stdout.trim() === 'active';
+  } catch {
+    return false;
+  }
+}
+
 export function createLocalDevAdapter(): LocalDevAdapter {
   return {
     startDev: () => controlWebConsole('start'),

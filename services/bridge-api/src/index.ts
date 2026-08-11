@@ -7,13 +7,12 @@ import { actionRegistry } from '@devicebridge/command-registry';
 import { CodexAppServer, CodexApprovalBroker, CodexThreadStore, probeCodexGateway, type CodexApprovalMetadata, type CodexFileChange, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
 import { authenticate, type AuthContext } from './auth.js';
 import { PairingStore } from './pairing.js';
-import { readDeviceStatus } from './system.js';
+import { DeviceBridgeApplication } from './application.js';
 import { pairingPage } from './pairing-page.js';
 import { ChallengeStore } from './challenges.js';
 import { createSystemSessionAdapter, type SessionAdapter } from './system-actions.js';
-import { controlSunshine, readIntegrationStatus, startScrcpy, type IntegrationStatus, type ScrcpyStartResult, type SunshineControlResult, type SunshineOperation } from './integrations.js';
-import { createLocalDevAdapter } from './local-services.js';
-import { ModeOrchestrator } from './modes.js';
+import { controlSunshine, startScrcpy, type IntegrationStatus, type ScrcpyStartResult, type SunshineControlResult, type SunshineOperation } from './integrations.js';
+import type { ModeOrchestrator } from './modes.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -125,6 +124,7 @@ export interface AppOptions {
   codexProjects?: readonly CodexProject[];
   codexApprovalBroker?: CodexApprovalBroker;
   modeOrchestrator?: ModeOrchestrator;
+  application?: DeviceBridgeApplication;
 }
 
 export function createApp(options: AppOptions = {}): FastifyInstance {
@@ -134,7 +134,6 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const challenges = options.challenges ?? new ChallengeStore();
   const sessionAdapter = options.sessionAdapter ?? createSystemSessionAdapter();
   const enableSystemLock = options.enableSystemLock ?? process.env.DEVICEBRIDGE_ENABLE_SYSTEM_LOCK === 'true';
-  const integrationStatus = options.integrationStatus ?? readIntegrationStatus;
   const scrcpyStart = options.scrcpyStart ?? startScrcpy;
   const enableScrcpy = options.enableScrcpy ?? process.env.DEVICEBRIDGE_ENABLE_SCRCPY === 'true';
   const enableSunshineControl = options.enableSunshineControl ?? process.env.DEVICEBRIDGE_ENABLE_SUNSHINE_CONTROL === 'true';
@@ -180,7 +179,8 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
     codexThreadStore.upsert({ ...metadata, status: 'running', lastEventAt: new Date().toISOString() });
     return codexServer.startTurn(threadId, prompt);
   } : undefined);
-  const modes = options.modeOrchestrator ?? new ModeOrchestrator({ local: createLocalDevAdapter(), sunshine: sunshineControl });
+  const application = options.application ?? new DeviceBridgeApplication({ integrationStatus: options.integrationStatus, sunshineControl, modes: options.modeOrchestrator });
+  const integrationStatus = options.integrationStatus ?? (() => application.integrations());
   const devDeviceId = options.devDeviceId ?? process.env.DEVICEBRIDGE_DEVICE_ID;
   const devToken = options.devToken ?? process.env.DEVICEBRIDGE_DEV_TOKEN;
   const pairingToken = options.pairingToken ?? process.env.DEVICEBRIDGE_PAIRING_TOKEN;
@@ -230,7 +230,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/v1/device', async (request) => {
     audit(request, auditSink, 'accepted');
-    return { requestId: request.requestId, device: readDeviceStatus() };
+    return { requestId: request.requestId, device: application.deviceStatus() };
   });
 
   app.get('/v1/actions', async (request) => {
@@ -293,10 +293,10 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
     if (definition.id === 'system.status') {
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
-      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: readDeviceStatus() };
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: application.deviceStatus() };
     }
     if (definition.id === 'mode.status') {
-      const result = modes.status();
+      const result = application.modeStatus();
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
@@ -305,7 +305,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       const target = ModeSwitchInputSchema.parse(bodyResult.data.input).target;
       const startedAt = performance.now();
       try {
-        const result = await modes.switchTo(target);
+        const result = await application.switchMode(target);
         audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: performance.now() - startedAt });
         events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
         return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };

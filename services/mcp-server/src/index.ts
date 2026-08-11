@@ -7,16 +7,10 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import { actionRegistry } from '@devicebridge/command-registry';
-import { controlSunshine, readIntegrationStatus } from '@devicebridge/bridge-api/integrations';
-import { createLocalDevAdapter } from '@devicebridge/bridge-api/local-services';
-import { ModeOrchestrator } from '@devicebridge/bridge-api/modes';
-import { readDeviceStatus } from '@devicebridge/bridge-api/system';
+import { DeviceBridgeApplication } from '@devicebridge/bridge-api/application';
 
 const capabilities = new Set((process.env.DEVICEBRIDGE_MCP_CAPABILITIES ?? 'system:read,android:read,gaming:read,mode:read,codex:read').split(',').map((value) => value.trim()).filter(Boolean));
 const execFileAsync = promisify(execFile);
-const webConsoleAvailable = async (): Promise<boolean> => {
-  try { const result = await execFileAsync('/usr/bin/systemctl', ['--user', 'is-active', 'devicebridge-web-console.service'], { timeout: 10_000, shell: false, maxBuffer: 16 * 1024 }); return result.stdout.trim() === 'active'; } catch { return false; }
-};
 const requireCapability = (capability: string): void => { if (!capabilities.has(capability)) throw new Error('MCP capability denied'); };
 const requireConfirmedWrite = (confirmed: boolean): void => { requireCapability('mode:control'); if (!confirmed) throw new Error('Explicit confirmation is required for mode changes'); };
 const auditPath = process.env.DEVICEBRIDGE_MCP_AUDIT_LOG ?? '.local/state/devicebridge/mcp-audit.jsonl';
@@ -32,11 +26,11 @@ const projects = (process.env.DEVICEBRIDGE_CODEX_PROJECTS ?? '').split(',').flat
 const server = new McpServer({ name: 'devicebridge', version: '0.1.0' }, {
   instructions: 'DeviceBridge exposes typed Fedora and Android tools. Check status before proposing changes. Mode changes are disabled unless the MCP process has mode:control and the caller confirms explicitly; never ask for shell commands or secrets.'
 });
-const modes = new ModeOrchestrator({ local: createLocalDevAdapter(), sunshine: controlSunshine });
+const application = new DeviceBridgeApplication();
 
 server.registerTool('device_status', {
   title: 'Read Fedora status', description: 'Read basic Fedora host status. Read-only.', inputSchema: {}, outputSchema: { status: z.object({ hostname: z.string(), platform: z.string(), uptimeSeconds: z.number(), cpuCount: z.number(), totalMemoryBytes: z.number(), freeMemoryBytes: z.number() }) }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
-}, async () => { requireCapability('system:read'); const status = await readDeviceStatus(); return { structuredContent: { status }, content: [{ type: 'text', text: `Fedora is reachable with ${status.cpuCount} CPUs.` }] }; });
+}, async () => { requireCapability('system:read'); const status = application.deviceStatus(); return { structuredContent: { status }, content: [{ type: 'text', text: `Fedora is reachable with ${status.cpuCount} CPUs.` }] }; });
 
 server.registerTool('list_actions', {
   title: 'List DeviceBridge actions', description: 'List declared actions and their capabilities. Does not execute anything.', inputSchema: {}, outputSchema: { actions: z.array(z.object({ id: z.string(), risk: z.string(), capability: z.string(), description: z.string() })) }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
@@ -48,11 +42,11 @@ server.registerTool('list_projects', {
 
 server.registerTool('sunshine_status', {
   title: 'Read Sunshine status', description: 'Read configured Sunshine availability. Read-only.', inputSchema: {}, outputSchema: { status: z.object({ available: z.boolean(), active: z.boolean() }) }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
-}, async () => { requireCapability('gaming:read'); const status = (await readIntegrationStatus()).sunshine; return { structuredContent: { status }, content: [{ type: 'text', text: status.active ? 'Sunshine is active.' : 'Sunshine is inactive.' }] }; });
+}, async () => { requireCapability('gaming:read'); const status = (await application.integrations()).sunshine; return { structuredContent: { status }, content: [{ type: 'text', text: status.active ? 'Sunshine is active.' : 'Sunshine is inactive.' }] }; });
 
 server.registerTool('android_adb_status', {
   title: 'Read Android ADB status', description: 'Read whether the configured Android device is connected through ADB. Read-only.', inputSchema: {}, outputSchema: { status: z.object({ available: z.boolean(), connected: z.boolean(), deviceCount: z.number() }) }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
-}, async () => { requireCapability('android:read'); const status = (await readIntegrationStatus()).adb; return { structuredContent: { status }, content: [{ type: 'text', text: status.connected ? `${status.deviceCount} Android device(s) connected.` : 'No Android device connected.' }] }; });
+}, async () => { requireCapability('android:read'); const status = (await application.integrations()).adb; return { structuredContent: { status }, content: [{ type: 'text', text: status.connected ? `${status.deviceCount} Android device(s) connected.` : 'No Android device connected.' }] }; });
 
 const safeReadAction = z.enum(['system.status', 'integrations.status', 'android.kdeconnect.status', 'android.adb.status', 'gaming.sunshine.status']);
 const safeReadOutput = z.object({ actionId: z.string(), result: z.record(z.unknown()) });
@@ -62,8 +56,8 @@ server.registerTool('run_safe_action', {
   const capability = actionId.startsWith('android.') ? 'android:read' : actionId.startsWith('gaming.') ? 'gaming:read' : 'system:read';
   try {
     requireCapability(capability);
-    const integration = actionId === 'system.status' ? undefined : await readIntegrationStatus();
-    const result = actionId === 'system.status' ? await readDeviceStatus() : actionId === 'integrations.status' ? integration : actionId === 'android.kdeconnect.status' ? integration!.kdeConnect : actionId === 'android.adb.status' ? integration!.adb : integration!.sunshine;
+    const integration = actionId === 'system.status' ? undefined : await application.integrations();
+    const result = actionId === 'system.status' ? application.deviceStatus() : actionId === 'integrations.status' ? integration : actionId === 'android.kdeconnect.status' ? integration!.kdeConnect : actionId === 'android.adb.status' ? integration!.adb : integration!.sunshine;
     audit(actionId, 'accepted', capability);
     return { structuredContent: { result: { actionId, result } }, content: [{ type: 'text', text: `${actionId} completed.` }] };
   } catch {
@@ -77,9 +71,7 @@ server.registerTool('preflight_health', {
   title: 'Run DeviceBridge pre-flight', description: 'Read Fedora and integration health before a mode or sleep automation. Read-only; does not change services.', inputSchema: {}, outputSchema: preflightOutput, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
 }, async () => {
   requireCapability('system:read');
-  const [device, integration, webConsole] = await Promise.all([readDeviceStatus(), readIntegrationStatus(), webConsoleAvailable()]);
-  const checks = { fedoraReachable: Boolean(device.platform), adbConnected: integration.adb.connected, sunshineAvailable: integration.sunshine.available, sunshineActive: integration.sunshine.active, webConsoleAvailable: webConsole };
-  const ready = checks.fedoraReachable && checks.sunshineAvailable;
+  const { checks, ready } = await application.preflight();
   audit('preflight_health', 'accepted', 'system:read');
   return { structuredContent: { checks, ready }, content: [{ type: 'text' as const, text: ready ? 'Pre-flight passed.' : 'Pre-flight requires attention.' }] };
 });
@@ -88,10 +80,10 @@ const modeInput = { confirmed: z.boolean().describe('Must be true after the user
 const modeOutput = { status: z.object({ mode: z.enum(['dev', 'game']).nullable(), transitioning: z.boolean() }), preflight: z.object({ adbConnected: z.boolean(), sunshineActive: z.boolean(), webConsoleAvailable: z.boolean() }) };
 const runModeAutomation = async (target: 'dev' | 'game', confirmed: boolean) => {
   requireConfirmedWrite(confirmed);
-  const [preflight, webConsole] = await Promise.all([readIntegrationStatus(), webConsoleAvailable()]);
+  const preflight = await application.preflight();
   audit(`mode.${target}`, 'accepted', 'mode:control');
-  const status = await modes.switchTo(target);
-  return { structuredContent: { status, preflight: { adbConnected: preflight.adb.connected, sunshineActive: preflight.sunshine.active, webConsoleAvailable: webConsole } }, content: [{ type: 'text' as const, text: `${target === 'dev' ? 'Work' : 'Game'} Mode is active.` }] };
+  const status = await application.switchMode(target);
+  return { structuredContent: { status, preflight: { adbConnected: preflight.checks.adbConnected, sunshineActive: preflight.checks.sunshineActive, webConsoleAvailable: preflight.checks.webConsoleAvailable } }, content: [{ type: 'text' as const, text: `${target === 'dev' ? 'Work' : 'Game'} Mode is active.` }] };
 };
 server.registerTool('start_dev_mode', {
   title: 'Start Dev Mode', description: 'Switch Fedora to Dev Mode. This stops Sunshine and starts the configured local web service; it changes system state and requires explicit user confirmation.', inputSchema: modeInput, outputSchema: modeOutput, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
@@ -114,10 +106,10 @@ server.registerTool('sleep_mode', {
 }, async ({ confirmed }) => {
   requireCapability('system:suspend');
   if (!confirmed) throw new Error('Explicit confirmation is required for sleep mode');
-  const preflight = await readIntegrationStatus();
+  const preflight = await application.preflight();
   audit('sleep_mode', 'accepted', 'system:suspend');
   await execFileAsync('/usr/bin/systemctl', ['suspend'], { timeout: 15_000, shell: false, maxBuffer: 16 * 1024 });
-  return { structuredContent: { suspended: true, preflight: { fedoraReachable: true, sunshineActive: preflight.sunshine.active } }, content: [{ type: 'text' as const, text: 'Fedora suspension requested.' }] };
+  return { structuredContent: { suspended: true, preflight: { fedoraReachable: preflight.checks.fedoraReachable, sunshineActive: preflight.checks.sunshineActive } }, content: [{ type: 'text' as const, text: 'Fedora suspension requested.' }] };
 });
 
 await server.connect(new StdioServerTransport());
