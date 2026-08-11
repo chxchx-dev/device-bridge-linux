@@ -19,8 +19,8 @@ Make DeviceBridge a first-class typed tool provider.
 - MCP calls use the same authorization/application services as HTTP.
 
 ## Automations
-- [ ] Work mode.
-- [ ] Game mode.
+- [x] Work mode (pre-flight + confirmed orchestration).
+- [x] Game mode (pre-flight + confirmed orchestration).
 - [ ] Sleep mode.
 - [ ] Pre-flight health checks.
 

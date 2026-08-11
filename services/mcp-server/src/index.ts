@@ -67,13 +67,28 @@ server.registerTool('run_safe_action', {
 });
 
 const modeInput = { confirmed: z.boolean().describe('Must be true after the user explicitly confirms the mode change.') };
-const modeOutput = { status: z.object({ mode: z.enum(['dev', 'game']).nullable(), transitioning: z.boolean() }) };
+const modeOutput = { status: z.object({ mode: z.enum(['dev', 'game']).nullable(), transitioning: z.boolean() }), preflight: z.object({ adbConnected: z.boolean(), sunshineActive: z.boolean(), webConsoleAvailable: z.boolean() }) };
+const runModeAutomation = async (target: 'dev' | 'game', confirmed: boolean) => {
+  requireConfirmedWrite(confirmed);
+  const preflight = await readIntegrationStatus();
+  audit(`mode.${target}`, 'accepted', 'mode:control');
+  const status = await modes.switchTo(target);
+  return { structuredContent: { status, preflight: { adbConnected: preflight.adb.connected, sunshineActive: preflight.sunshine.active, webConsoleAvailable: preflight.sunshine.available } }, content: [{ type: 'text' as const, text: `${target === 'dev' ? 'Work' : 'Game'} Mode is active.` }] };
+};
 server.registerTool('start_dev_mode', {
   title: 'Start Dev Mode', description: 'Switch Fedora to Dev Mode. This stops Sunshine and starts the configured local web service; it changes system state and requires explicit user confirmation.', inputSchema: modeInput, outputSchema: modeOutput, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
-}, async ({ confirmed }) => { requireConfirmedWrite(confirmed); const status = await modes.switchTo('dev'); return { structuredContent: { status }, content: [{ type: 'text', text: 'Dev Mode is active.' }] }; });
+}, async ({ confirmed }) => runModeAutomation('dev', confirmed));
 
 server.registerTool('start_game_mode', {
   title: 'Start Game Mode', description: 'Switch Fedora to Game Mode. This stops the local web service and starts Sunshine; it changes system state and requires explicit user confirmation.', inputSchema: modeInput, outputSchema: modeOutput, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
-}, async ({ confirmed }) => { requireConfirmedWrite(confirmed); const status = await modes.switchTo('game'); return { structuredContent: { status }, content: [{ type: 'text', text: 'Game Mode is active.' }] }; });
+}, async ({ confirmed }) => runModeAutomation('game', confirmed));
+
+server.registerTool('work_mode', {
+  title: 'Activate Work Mode', description: 'Run the approved Work Mode automation: verify integrations, stop Sunshine and start the local development service. Requires explicit confirmation.', inputSchema: modeInput, outputSchema: modeOutput, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+}, async ({ confirmed }) => runModeAutomation('dev', confirmed));
+
+server.registerTool('game_mode', {
+  title: 'Activate Game Mode', description: 'Run the approved Game Mode automation: verify integrations, stop the local development service and start Sunshine. Requires explicit confirmation.', inputSchema: modeInput, outputSchema: modeOutput, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+}, async ({ confirmed }) => runModeAutomation('game', confirmed));
 
 await server.connect(new StdioServerTransport());
