@@ -372,7 +372,6 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
     if (definition.id === 'codex.threads.list') {
       const result = codexThreadList();
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
-      events.publish('codex.threads.updated', { requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
     }
     if (definition.id === 'codex.events.list') {
