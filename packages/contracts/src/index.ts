@@ -20,6 +20,7 @@ export const ActionIdSchema = z.enum([
   'gaming.sunshine.stop',
   'android.adb.status',
   'codex.status',
+  'codex.projects.list',
   'codex.threads.list',
   'codex.events.list',
   'codex.thread.start',

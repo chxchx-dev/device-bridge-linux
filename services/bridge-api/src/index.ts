@@ -261,7 +261,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/v1/actions', async (request) => {
     audit(request, auditSink, 'accepted');
-    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : id === 'codex.status' || id === 'codex.threads.list' || id === 'codex.events.list' || id === 'codex.thread.start' || id === 'codex.turn.start' || id === 'codex.approvals.list' || id === 'codex.approval.respond' ? enableCodexGateway : enabledByDefault, confirmation, description })) };
+    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : id === 'codex.status' || id === 'codex.projects.list' || id === 'codex.threads.list' || id === 'codex.events.list' || id === 'codex.thread.start' || id === 'codex.turn.start' || id === 'codex.approvals.list' || id === 'codex.approval.respond' ? enableCodexGateway : enabledByDefault, confirmation, description })) };
   });
 
   app.get('/v1/actions/:actionId/challenge', async (request, reply) => {
@@ -305,7 +305,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'rejected', 'insufficient_capability', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'denied', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'INSUFFICIENT_CAPABILITY', message: 'The paired device lacks the required capability' } });
     }
-    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.id === 'codex.status' || definition.id === 'codex.threads.list' || definition.id === 'codex.events.list' || definition.id === 'codex.thread.start' || definition.id === 'codex.turn.start' || definition.id === 'codex.approvals.list' || definition.id === 'codex.approval.respond' ? enableCodexGateway : definition.enabledByDefault;
+    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.id === 'codex.status' || definition.id === 'codex.projects.list' || definition.id === 'codex.threads.list' || definition.id === 'codex.events.list' || definition.id === 'codex.thread.start' || definition.id === 'codex.turn.start' || definition.id === 'codex.approvals.list' || definition.id === 'codex.approval.respond' ? enableCodexGateway : definition.enabledByDefault;
     if (!actionEnabled) {
       audit(request, auditSink, 'rejected', 'action_disabled', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'ACTION_DISABLED', message: `${definition.id} is not enabled in the starter` } });
@@ -368,6 +368,11 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
         audit(request, auditSink, 'failed', 'adapter_failed', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'failed', durationMs: performance.now() - startedAt });
         return reply.code(502).send({ requestId: request.requestId, error: { code: 'ADAPTER_FAILED', message: 'The Codex gateway adapter failed' } });
       }
+    }
+    if (definition.id === 'codex.projects.list') {
+      const result = codexProjects.map(({ id }) => ({ id }));
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
     }
     if (definition.id === 'codex.threads.list') {
       const result = codexThreadList();
