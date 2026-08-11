@@ -5,13 +5,13 @@ Make the system useful away from home without punching holes into the router.
 
 ## Remote access
 - [ ] Tailnet ACL/grants reviewed.
-- [ ] MagicDNS naming chosen.
-- [ ] Bridge published with Tailscale Serve.
-- [ ] No Funnel/public exposure.
-- [ ] Test from Android cellular data.
+- [x] MagicDNS naming chosen (existing tailnet hostname; private value remains local).
+- [x] Bridge published with Tailscale Serve.
+- [x] No Funnel/public exposure; Serve reports `tailnet only`.
+- [x] Test from Android cellular data (Phase 1/3 evidence).
 
 ## Wake
-- [ ] Detect NIC WOL support with `ethtool` when applicable.
+- [x] Detect NIC WOL support with `ethtool` when applicable; Phase 00 evidence records no WOL capability on the active Wi-Fi interface.
 - [ ] Verify BIOS/UEFI WOL option.
 - [ ] Verify suspend/power-state behavior.
 - [ ] Choose always-on relay if remote wake is required.
