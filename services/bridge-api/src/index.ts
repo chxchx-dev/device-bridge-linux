@@ -292,9 +292,12 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   });
 
   app.get('/v1/ws', { websocket: true }, (socket, request) => {
-    events.add(socket);
-    socket.send(JSON.stringify({ type: 'bridge.connected', timestamp: new Date().toISOString(), payload: { requestId: request.requestId } }));
-    socket.on('close', () => events.remove(socket));
+    const candidate = socket as { send?: unknown; on?: unknown };
+    if (typeof candidate.send !== 'function' || typeof candidate.on !== 'function') return;
+    const client = socket as { send(data: string): void; on(event: 'close', listener: () => void): void };
+    events.add(client);
+    client.send(JSON.stringify({ type: 'bridge.connected', timestamp: new Date().toISOString(), payload: { requestId: request.requestId } }));
+    client.on('close', () => events.remove(client));
   });
 
   return app;
