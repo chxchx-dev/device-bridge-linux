@@ -21,6 +21,12 @@ Fedora tailscaled (system service)
 ## Why this architecture
 The Fedora Tailscale service can remain available even when no desktop user is logged in. Tailscale provides connectivity; DeviceBridge remains responsible for authentication and application behavior.
 
+When remote availability is required and the laptop has no usable WOL support,
+the optional user service `devicebridge-keep-awake.service` can inhibit idle
+suspend. It does not require root and does not expose a network listener. A
+manual suspend remains available to the user; while suspended, the dashboard
+cannot respond until Fedora is awake again.
+
 ## Bridge exposure
 Development:
 

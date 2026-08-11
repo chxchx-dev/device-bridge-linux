@@ -1,0 +1,15 @@
+[Unit]
+Description=Keep Fedora awake for DeviceBridge remote access
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/systemd-inhibit --what=idle --mode=block --why=DeviceBridge-remote-dashboard /usr/bin/sleep infinity
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
