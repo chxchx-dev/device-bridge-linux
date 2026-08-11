@@ -7,6 +7,7 @@ export const ActionIdSchema = z.enum([
   'system.status',
   'system.session.rotate',
   'mode.status',
+  'mode.preview',
   'mode.switch',
   'integrations.status',
   'android.kdeconnect.status',
@@ -18,6 +19,7 @@ export const ActionIdSchema = z.enum([
   'gaming.sunshine.status',
   'gaming.sunshine.start',
   'gaming.sunshine.stop',
+  'services.status',
   'android.adb.status',
   'codex.status',
   'codex.projects.list',
@@ -35,6 +37,8 @@ export type Mode = z.infer<typeof ModeSchema>;
 
 export const ModeSwitchInputSchema = z.object({ target: ModeSchema });
 export type ModeSwitchInput = z.infer<typeof ModeSwitchInputSchema>;
+export const ModePreviewInputSchema = ModeSwitchInputSchema;
+export type ModePreviewInput = z.infer<typeof ModePreviewInputSchema>;
 
 export const CodexThreadStartInputSchema = z.object({ projectId: z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/), title: z.string().trim().min(1).max(120).nullable().default(null) });
 export type CodexThreadStartInput = z.infer<typeof CodexThreadStartInputSchema>;

@@ -22,11 +22,20 @@ export type Action = {
 export type ActionChallenge = { challengeId: string; actionId: string; expiresAt: string };
 export type Mode = 'dev' | 'game';
 export type ModeStatus = { mode: Mode | null; transitioning: boolean };
+export type ModePlan = { target: Mode; start: readonly string[]; stop: readonly string[]; checks: readonly string[] };
 export type IntegrationStatus = {
   kdeConnect: { available: boolean; pairedReachable: boolean; deviceCount: number };
   adb: { available: boolean; connected: boolean; deviceCount: number };
   scrcpy: { available: boolean; version: string | null };
   sunshine: { available: boolean; active: boolean };
+};
+export type RegisteredServiceStatus = {
+  id: string;
+  unit: string;
+  control: 'user-systemd';
+  allowedModes: readonly Mode[];
+  active: boolean;
+  available: boolean;
 };
 export type CodexGatewayStatus = {
   enabled: boolean;
@@ -90,6 +99,14 @@ export class BridgeClient {
 
   getModeStatus(session: StoredSession): Promise<{ result: ModeStatus }> {
     return this.request('/v1/actions/mode.status', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
+  }
+
+  getModePreview(session: StoredSession, target: Mode): Promise<{ result: ModePlan }> {
+    return this.request('/v1/actions/mode.preview', session, { method: 'POST', body: JSON.stringify({ input: { target } }) });
+  }
+
+  getServiceStatus(session: StoredSession): Promise<{ result: RegisteredServiceStatus[] }> {
+    return this.request('/v1/actions/services.status', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
   }
 
   getCodexStatus(session: StoredSession): Promise<{ result: CodexGatewayStatus }> {

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute, relative, resolve } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
-import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, CodexApprovalRespondInputSchema, CodexEventsListInputSchema, CodexTaskEventSchema, CodexThreadStartInputSchema, CodexTurnStartInputSchema, DeviceIdSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
+import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, CodexApprovalRespondInputSchema, CodexEventsListInputSchema, CodexTaskEventSchema, CodexThreadStartInputSchema, CodexTurnStartInputSchema, DeviceIdSchema, ModePreviewInputSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
 import { actionRegistry } from '@devicebridge/command-registry';
 import { CodexAppServer, CodexApprovalBroker, CodexThreadStore, probeCodexGateway, toSafeCodexTaskEvent, type CodexApprovalMetadata, type CodexFileChange, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
 import { authenticate, type AuthContext } from './auth.js';
@@ -14,6 +14,8 @@ import { createSystemSessionAdapter, type SessionAdapter } from './system-action
 import { controlSunshine, startScrcpy, type IntegrationStatus, type ScrcpyStartResult, type SunshineControlResult, type SunshineOperation } from './integrations.js';
 import type { ModeOrchestrator } from './modes.js';
 import { RateLimiter } from './rate-limit.js';
+import { createServiceRegistry, type ServiceRegistry } from './service-registry.js';
+import { buildModePlan } from './mode-profiles.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -125,6 +127,7 @@ export interface AppOptions {
   codexProjects?: readonly CodexProject[];
   codexApprovalBroker?: CodexApprovalBroker;
   modeOrchestrator?: ModeOrchestrator;
+  serviceRegistry?: ServiceRegistry;
   application?: DeviceBridgeApplication;
   rateLimiter?: RateLimiter;
 }
@@ -143,6 +146,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const sunshineControl = options.sunshineControl ?? controlSunshine;
   const enableModes = options.enableModes ?? process.env.DEVICEBRIDGE_ENABLE_MODES === 'true';
   const enableCodexGateway = options.enableCodexGateway ?? process.env.CODEX_GATEWAY_ENABLED === 'true';
+  const serviceRegistry = options.serviceRegistry ?? createServiceRegistry();
   const codexGatewayStatus = options.codexGatewayStatus ?? probeCodexGateway;
   const codexThreadStore = options.codexThreadStore ?? new CodexThreadStore();
   const codexThreadList = options.codexThreadList ?? (() => codexThreadStore.list());
@@ -295,6 +299,10 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'rejected', 'invalid_mode_input');
       return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Mode must be dev or game' } });
     }
+    if (idResult.data === 'mode.preview' && !ModePreviewInputSchema.safeParse(bodyResult.data.input).success) {
+      audit(request, auditSink, 'rejected', 'invalid_mode_input');
+      return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Mode must be dev or game' } });
+    }
     if (idResult.data === 'codex.thread.start' && !CodexThreadStartInputSchema.safeParse(bodyResult.data.input).success) return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid Codex project input' } });
     if (idResult.data === 'codex.turn.start' && !CodexTurnStartInputSchema.safeParse(bodyResult.data.input).success) return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid Codex turn input' } });
     if (idResult.data === 'codex.events.list' && !CodexEventsListInputSchema.safeParse(bodyResult.data.input).success) return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid Codex events input' } });
@@ -338,6 +346,12 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
     }
+    if (definition.id === 'mode.preview') {
+      const target = ModePreviewInputSchema.parse(bodyResult.data.input).target;
+      const result = buildModePlan(target, serviceRegistry.list());
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+    }
     if (definition.id === 'mode.switch') {
       const target = ModeSwitchInputSchema.parse(bodyResult.data.input).target;
       const startedAt = performance.now();
@@ -354,6 +368,13 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
     if (definition.id === 'integrations.status') {
       const result = await integrationStatus();
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+    }
+    if (definition.id === 'services.status') {
+      const startedAt = performance.now();
+      const result = await serviceRegistry.status();
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: performance.now() - startedAt });
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
     }

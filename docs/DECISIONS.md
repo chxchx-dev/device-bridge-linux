@@ -91,3 +91,13 @@ biometric step-up. Fedora passwords, PAM input, sudo replay and automatic login
 are forbidden. The existing `system.unlock` registry entry remains disabled by
 default and is not an implementation target for this phase without a separate
 security review.
+
+## ADR-012 — Declarative user-service registry
+**Status:** Accepted
+
+DeviceBridge keeps the first service catalog in validated local configuration.
+Each record contains a stable ID, a fixed user-level systemd unit and the
+allowed Dev/Game modes. Remote clients receive IDs and bounded status only;
+they never provide unit names, paths or systemctl arguments. Invalid entries
+are ignored and the built-in allowlist remains the fallback. Persistent profile
+dependencies are deferred until the second-generation mode model is designed.

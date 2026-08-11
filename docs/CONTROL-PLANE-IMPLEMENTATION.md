@@ -39,8 +39,8 @@ Fecha de referencia: 2026-08-11.
   no existe un timeline completo de eventos visible en Android.
 - La vista Codex no presenta una consola viva con etapas, duración y resultado
   estructurado.
-- Dev Mode y Game Mode coordinan pocos servicios fijos.
-- No existe todavía un registro declarativo de proyectos y servicios.
+- Dev Mode y Game Mode todavía coordinan pocos servicios, pero ya existe un
+  registro declarativo inicial de servicios user-level.
 - El estado del modo vive en memoria del proceso y debe recuperarse después de
   reinicios.
 - El streaming de juego sigue dependiendo de un cliente compatible con
@@ -147,7 +147,7 @@ Criterios de aceptación:
 
 ### Bloque 3 — Registro de proyectos y servicios
 
-Estado: `pendiente`.
+Estado: `slice inicial implementado; transición por perfil pendiente`.
 
 Objetivo: que Codex y los modos trabajen con IDs declarados, no con rutas o
 comandos introducidos desde el teléfono.
@@ -168,17 +168,18 @@ serviceId: web-console
 
 Trabajo:
 
-- Registro local en SQLite o configuración declarativa validada.
-- IDs estables y allowlist server-side.
-- Ninguna ruta arbitraria desde Android.
-- Estado, disponibilidad y dependencia de cada servicio.
+- [x] Configuración declarativa server-side con IDs, unidades user-systemd y modos permitidos.
+- [x] IDs estables y allowlist server-side; entradas inválidas no se registran.
+- [x] Ninguna ruta ni unidad arbitraria desde Android.
+- [x] Estado y disponibilidad de cada servicio mediante acción R0 autenticada.
+- Registro persistente de dependencias y perfiles en una fase posterior, cuando el modelo esté validado.
 - Instalación documentada de unidades user-level.
 
 Criterios de aceptación:
 
-- Un prompt solo puede usar un proyecto registrado.
-- Un perfil solo puede iniciar servicios registrados.
-- Un servicio fuera del registro es rechazado antes de ejecutarse.
+- [x] Un prompt solo puede usar un proyecto registrado.
+- Los perfiles solo podrán iniciar servicios registrados (la transición declarativa completa queda para el Bloque 4).
+- [x] Un servicio fuera del registro no puede aparecer en el catálogo ni ejecutarse.
 
 ### Bloque 4 — Perfiles Dev/Game de segunda generación
 
