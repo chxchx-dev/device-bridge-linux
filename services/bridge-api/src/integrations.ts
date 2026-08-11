@@ -41,7 +41,7 @@ export async function controlSunshine(operation: SunshineOperation): Promise<Sun
 
 async function fixedCommand(file: string, args: readonly string[]): Promise<{ ok: boolean; stdout: string }> {
   try {
-    const result = await execFileAsync(file, [...args], { timeout: 5000, maxBuffer: 64 * 1024 });
+    const result = await execFileAsync(file, [...args], { timeout: 15_000, maxBuffer: 64 * 1024 });
     return { ok: true, stdout: result.stdout };
   } catch (error) {
     const result = error as { stdout?: string };
