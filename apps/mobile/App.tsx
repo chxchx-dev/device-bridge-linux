@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DEVICE_ID } from './src/config';
 import { BridgeClient, type Action, type CodexApprovalMetadata, type CodexGatewayStatus, type CodexThreadMetadata, type DeviceStatus, type IntegrationStatus, type Mode, type ModeStatus } from './src/api/bridge-client';
 import { connectBridgeEvents } from './src/events/bridge-events';
@@ -129,7 +129,7 @@ export default function App() {
   const modeSwitchAction = useMemo(() => actions.find((action) => action.id === 'mode.switch'), [actions]);
   const enabledActions = useMemo(() => actions.filter((action) => !['system.status', 'mode.status', 'mode.switch', 'codex.status', 'codex.threads.list', 'codex.thread.start', 'codex.turn.start', 'codex.approvals.list', 'codex.approval.respond'].includes(action.id) && action.enabledByDefault), [actions]);
 
-  return <View style={styles.container}>
+  return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <StatusBar barStyle="light-content" />
     <Text style={styles.eyebrow}>PRIVATE TAILNET CONTROL</Text><Text style={styles.title}>DeviceBridge</Text>
     {!session ? <View style={styles.card}><Text style={styles.heading}>Pair Android</Text><Text style={styles.body}>Device ID: {DEVICE_ID}</Text><TextInput value={pairingToken} onChangeText={setPairingToken} placeholder="Token largo o código de 6 dígitos" placeholderTextColor="#7890aa" secureTextEntry={!showPairingToken} autoCapitalize="none" autoCorrect={false} style={styles.input} /><Pressable onPress={() => setShowPairingToken((shown) => !shown)} style={styles.secondary}><Text style={styles.secondaryText}>{showPairingToken ? 'Ocultar token' : 'Mostrar token'}</Text></Pressable><Pressable disabled={busy || pairingToken.trim().length < 6} onPress={() => void pair()} style={styles.button}><Text style={styles.buttonText}>{busy ? 'Pairing…' : 'Pair device'}</Text></Pressable></View> : <View style={styles.card}>
@@ -144,11 +144,11 @@ export default function App() {
       <Pressable onPress={() => void forget()} style={styles.secondary}><Text style={styles.secondaryText}>Forget secure session</Text></Pressable>
     </View>}
     <Text style={styles.message}>{message}</Text>
-  </View>;
+  </ScrollView>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 28, justifyContent: 'center', backgroundColor: '#08111f' },
+  container: { flexGrow: 1, padding: 28, paddingBottom: 48, backgroundColor: '#08111f' },
   eyebrow: { color: '#8de1c0', fontSize: 12, fontWeight: '700', letterSpacing: 2 }, title: { color: '#e8eef8', fontSize: 42, fontWeight: '800', marginTop: 8 },
   card: { marginTop: 28, padding: 20, gap: 14, backgroundColor: '#0f1f34', borderColor: '#28415f', borderWidth: 1, borderRadius: 18 }, modePanel: { marginTop: 4, gap: 10, padding: 14, backgroundColor: '#132943', borderRadius: 12 }, approvalPanel: { marginTop: 4, gap: 10, padding: 14, backgroundColor: '#392b20', borderRadius: 12 }, modeRow: { flexDirection: 'row', gap: 10 }, modeButton: { flex: 1, padding: 13, alignItems: 'center', borderRadius: 10, backgroundColor: '#8de1c0' }, denyButton: { flex: 1, padding: 13, alignItems: 'center', borderRadius: 10, backgroundColor: '#e39b8d' }, heading: { color: '#e8eef8', fontSize: 20, fontWeight: '700' }, body: { color: '#c2d0e0', fontSize: 16 }, caption: { color: '#8ea4bc', fontSize: 14 }, input: { color: '#eef6ff', borderColor: '#385471', borderWidth: 1, borderRadius: 10, padding: 12 }, button: { padding: 13, alignItems: 'center', borderRadius: 10, backgroundColor: '#8de1c0' }, buttonText: { color: '#06111f', fontWeight: '700' }, secondary: { padding: 10, alignItems: 'center' }, secondaryText: { color: '#9eb1c8' }, message: { marginTop: 18, color: '#9eb1c8' },
 });
