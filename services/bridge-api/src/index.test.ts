@@ -207,7 +207,7 @@ test('mode switch accepts only dev or game and requires confirmation', async () 
   store.seedDevice(deviceId, token);
   const calls: string[] = [];
   const modes = new ModeOrchestrator({
-    docker: { startDev: async () => { calls.push('docker.start'); }, stopDev: async () => { calls.push('docker.stop'); } },
+    local: { startDev: async () => { calls.push('local.start'); }, stopDev: async () => { calls.push('local.stop'); } },
     sunshine: async (operation) => { calls.push(`sunshine.${operation}`); return { requested: operation, active: operation === 'start' }; },
   });
   const app = createApp({ store, enableModes: true, modeOrchestrator: modes });
@@ -220,7 +220,7 @@ test('mode switch accepts only dev or game and requires confirmation', async () 
   const switched = await app.inject({ method: 'POST', url: '/v1/actions/mode.switch', headers, payload: { input: { target: 'dev' }, confirmation: { challengeId: challenge.json().challengeId } } });
   assert.equal(switched.statusCode, 200);
   assert.deepEqual(switched.json().result, { mode: 'dev', transitioning: false });
-  assert.deepEqual(calls, ['sunshine.stop', 'docker.start']);
+  assert.deepEqual(calls, ['sunshine.stop', 'local.start']);
   await app.close();
 });
 

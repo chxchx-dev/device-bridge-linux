@@ -10,7 +10,7 @@ import { pairingPage } from './pairing-page.js';
 import { ChallengeStore } from './challenges.js';
 import { createSystemSessionAdapter, type SessionAdapter } from './system-actions.js';
 import { controlSunshine, readIntegrationStatus, startScrcpy, type IntegrationStatus, type ScrcpyStartResult, type SunshineControlResult, type SunshineOperation } from './integrations.js';
-import { createDockerModeAdapter } from './docker.js';
+import { createLocalDevAdapter } from './local-services.js';
 import { ModeOrchestrator } from './modes.js';
 
 declare module 'fastify' {
@@ -103,7 +103,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const enableSunshineControl = options.enableSunshineControl ?? process.env.DEVICEBRIDGE_ENABLE_SUNSHINE_CONTROL === 'true';
   const sunshineControl = options.sunshineControl ?? controlSunshine;
   const enableModes = options.enableModes ?? process.env.DEVICEBRIDGE_ENABLE_MODES === 'true';
-  const modes = options.modeOrchestrator ?? new ModeOrchestrator({ docker: createDockerModeAdapter(), sunshine: sunshineControl });
+  const modes = options.modeOrchestrator ?? new ModeOrchestrator({ local: createLocalDevAdapter(), sunshine: sunshineControl });
   const devDeviceId = options.devDeviceId ?? process.env.DEVICEBRIDGE_DEVICE_ID;
   const devToken = options.devToken ?? process.env.DEVICEBRIDGE_DEV_TOKEN;
   const pairingToken = options.pairingToken ?? process.env.DEVICEBRIDGE_PAIRING_TOKEN;

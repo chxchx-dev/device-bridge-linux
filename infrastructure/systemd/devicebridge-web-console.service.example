@@ -1,0 +1,16 @@
+[Unit]
+Description=DeviceBridge web console preview
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/devicebridge
+ExecStart=/usr/bin/pnpm --filter web-console exec vite preview --host 127.0.0.1 --port 5173
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
