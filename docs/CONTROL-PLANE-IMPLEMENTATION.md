@@ -106,7 +106,7 @@ Criterios de aceptación:
 
 ### Bloque 2 — Consola Codex visual
 
-Estado: `pendiente`.
+Estado: `slice inicial implementado; respuesta estructurada y estados ampliados pendientes`.
 
 Objetivo: reemplazar la presentación plana por una experiencia tipo terminal/HUD.
 
@@ -130,7 +130,9 @@ FINAL RESULT
 
 Trabajo:
 
-- Timeline con estados visuales y animaciones discretas.
+- [x] Timeline con un único proceso activo visible y animaciones discretas.
+- [x] Respuesta viva de Codex acumulada y mostrada en Android.
+- [x] Consultas rápidas de estado de Fedora, preflight y resumen desde Android.
 - Tarjeta de tarea activa con duración y estado.
 - Respuesta final estructurada en resumen, cambios, pruebas y advertencias.
 - Diff plegable y redacción de rutas sensibles.
