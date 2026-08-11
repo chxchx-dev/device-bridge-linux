@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev:bridge": "pnpm --filter @devicebridge/bridge-api run dev",
+    "devicebridge": "bash scripts/devicebridge.sh",
     "build": "pnpm --recursive --if-present run build",
     "typecheck": "pnpm run build && pnpm --recursive --if-present run typecheck",
     "lint": "pnpm run build && pnpm --recursive --if-present run lint",
