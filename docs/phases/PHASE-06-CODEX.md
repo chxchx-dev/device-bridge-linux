@@ -6,13 +6,13 @@ Control and supervise Codex work from Android while Fedora performs the actual c
 ## Tasks
 - [x] Verify current Codex CLI, SDK and App Server docs.
 - [x] Implement bounded server-side App Server handshake experiment (local stdio only).
-- [ ] Evaluate App Server for rich approvals/events.
-- [ ] Persist non-secret thread metadata.
-- [ ] Display active project/thread on phone.
+- [x] Evaluate App Server for rich approvals/events.
+- [x] Persist non-secret thread metadata.
+- [x] Display active project/thread on phone.
 - [ ] Stream task status.
 - [ ] Display changed-file summaries/diffs safely.
-- [ ] Forward approval requests with risk metadata.
-- [ ] Approve/deny from phone with step-up for sensitive operations.
+- [x] Forward approval requests with risk metadata.
+- [x] Approve/deny from phone with step-up for sensitive operations.
 - [ ] Never expose a generic `run command` Codex feature.
 
 The first slice uses the local `codex app-server` stdio transport only. It sends
