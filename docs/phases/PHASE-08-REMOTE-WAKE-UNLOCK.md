@@ -4,7 +4,7 @@
 Make the system useful away from home without punching holes into the router.
 
 ## Remote access
-- [ ] Tailnet ACL/grants reviewed.
+- [x] Tailnet ACL/grants reviewed; personal tailnet contains only the Fedora and Android devices, with no additional nodes requiring access rules.
 - [x] MagicDNS naming chosen (existing tailnet hostname; private value remains local).
 - [x] Bridge published with Tailscale Serve.
 - [x] No Funnel/public exposure; Serve reports `tailnet only`.
