@@ -20,6 +20,8 @@ export const ActionIdSchema = z.enum([
   'android.adb.status',
   'codex.status',
   'codex.threads.list',
+  'codex.thread.start',
+  'codex.turn.start',
   'codex.approval.respond',
 ]);
 export type ActionId = z.infer<typeof ActionIdSchema>;
@@ -29,6 +31,11 @@ export type Mode = z.infer<typeof ModeSchema>;
 
 export const ModeSwitchInputSchema = z.object({ target: ModeSchema });
 export type ModeSwitchInput = z.infer<typeof ModeSwitchInputSchema>;
+
+export const CodexThreadStartInputSchema = z.object({ projectId: z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/), title: z.string().trim().min(1).max(120).nullable().default(null) });
+export type CodexThreadStartInput = z.infer<typeof CodexThreadStartInputSchema>;
+export const CodexTurnStartInputSchema = z.object({ threadId: z.string().regex(/^[A-Za-z0-9._:-]{1,200}$/), prompt: z.string().trim().min(1).max(20_000) });
+export type CodexTurnStartInput = z.infer<typeof CodexTurnStartInputSchema>;
 
 export const DeviceIdSchema = z.string().regex(/^(android|fedora)-[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/, 'Invalid DeviceBridge device ID');
 export type DeviceId = z.infer<typeof DeviceIdSchema>;

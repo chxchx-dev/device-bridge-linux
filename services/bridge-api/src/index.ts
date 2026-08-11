@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { isAbsolute } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
-import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, DeviceIdSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
+import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, CodexThreadStartInputSchema, CodexTurnStartInputSchema, DeviceIdSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
 import { actionRegistry } from '@devicebridge/command-registry';
-import { CodexThreadStore, probeCodexGateway, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
+import { CodexAppServer, CodexThreadStore, probeCodexGateway, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
 import { authenticate, type AuthContext } from './auth.js';
 import { PairingStore } from './pairing.js';
 import { readDeviceStatus } from './system.js';
@@ -61,6 +62,18 @@ function audit(request: { requestId: string; method: string; url: string; authCo
   });
 }
 
+interface CodexProject { id: string; path: string }
+
+function configuredCodexProjects(value: string | undefined): CodexProject[] {
+  return (value ?? '').split(',').map((entry) => {
+    const separator = entry.indexOf('=');
+    if (separator < 1) return undefined;
+    const id = entry.slice(0, separator);
+    const path = entry.slice(separator + 1);
+    return /^[a-z0-9][a-z0-9-]{1,40}$/.test(id) && isAbsolute(path) ? { id, path } : undefined;
+  }).filter((project): project is CodexProject => project !== undefined);
+}
+
 class EventHub {
   private readonly clients = new Set<{ send(data: string): void }>();
 
@@ -92,6 +105,9 @@ export interface AppOptions {
   codexGatewayStatus?: () => Promise<CodexGatewayStatus>;
   codexThreadStore?: CodexThreadStore;
   codexThreadList?: () => CodexThreadMetadata[];
+  codexThreadStart?: (projectId: string, title: string | null) => Promise<CodexThreadMetadata>;
+  codexTurnStart?: (threadId: string, prompt: string) => Promise<unknown>;
+  codexProjects?: readonly CodexProject[];
   modeOrchestrator?: ModeOrchestrator;
 }
 
@@ -112,6 +128,26 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const codexGatewayStatus = options.codexGatewayStatus ?? probeCodexGateway;
   const codexThreadStore = options.codexThreadStore ?? new CodexThreadStore();
   const codexThreadList = options.codexThreadList ?? (() => codexThreadStore.list());
+  const events = new EventHub();
+  const codexThreadStart = options.codexThreadStart;
+  const codexTurnStart = options.codexTurnStart;
+  const codexProjects = options.codexProjects ?? configuredCodexProjects(process.env.DEVICEBRIDGE_CODEX_PROJECTS);
+  const codexServer = codexProjects.length ? new CodexAppServer({ allowedProjects: codexProjects.map((project) => project.path), onEvent: (event) => events.publish('codex.event', event) }) : undefined;
+  const startThread = codexThreadStart ?? (codexServer ? async (projectId: string, title: string | null): Promise<CodexThreadMetadata> => {
+    const project = codexProjects.find((candidate) => candidate.id === projectId);
+    if (!project) throw new Error('Unknown Codex project');
+    const thread = await codexServer.startThread(project.path, title);
+    const now = new Date().toISOString();
+    const metadata: CodexThreadMetadata = { ...thread, status: 'idle', lastEventAt: now, createdAt: now };
+    codexThreadStore.upsert(metadata);
+    return metadata;
+  } : undefined);
+  const startTurn = codexTurnStart ?? (codexServer ? async (threadId: string, prompt: string): Promise<unknown> => {
+    const metadata = codexThreadStore.get(threadId);
+    if (!metadata) throw new Error('Unknown Codex thread');
+    codexThreadStore.upsert({ ...metadata, status: 'running', lastEventAt: new Date().toISOString() });
+    return codexServer.startTurn(threadId, prompt);
+  } : undefined);
   const modes = options.modeOrchestrator ?? new ModeOrchestrator({ local: createLocalDevAdapter(), sunshine: sunshineControl });
   const devDeviceId = options.devDeviceId ?? process.env.DEVICEBRIDGE_DEVICE_ID;
   const devToken = options.devToken ?? process.env.DEVICEBRIDGE_DEV_TOKEN;
@@ -125,7 +161,6 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   }
 
   const app = Fastify({ logger: true });
-  const events = new EventHub();
   void app.register(websocket);
   app.decorate('devicebridgePairingStore', store);
   app.decorate('devicebridgeAuditSink', auditSink);
@@ -168,7 +203,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/v1/actions', async (request) => {
     audit(request, auditSink, 'accepted');
-    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : id === 'codex.status' || id === 'codex.threads.list' ? enableCodexGateway : enabledByDefault, confirmation, description })) };
+    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : id === 'codex.status' || id === 'codex.threads.list' || id === 'codex.thread.start' || id === 'codex.turn.start' ? enableCodexGateway : enabledByDefault, confirmation, description })) };
   });
 
   app.get('/v1/actions/:actionId/challenge', async (request, reply) => {
@@ -202,13 +237,15 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'rejected', 'invalid_mode_input');
       return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Mode must be dev or game' } });
     }
+    if (idResult.data === 'codex.thread.start' && !CodexThreadStartInputSchema.safeParse(bodyResult.data.input).success) return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid Codex project input' } });
+    if (idResult.data === 'codex.turn.start' && !CodexTurnStartInputSchema.safeParse(bodyResult.data.input).success) return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid Codex turn input' } });
     const definition = actionRegistry[idResult.data];
     const hasCapability = request.authContext?.capabilities.includes(definition.capability) ?? false;
     if (!hasCapability) {
       audit(request, auditSink, 'rejected', 'insufficient_capability', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'denied', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'INSUFFICIENT_CAPABILITY', message: 'The paired device lacks the required capability' } });
     }
-    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.id === 'codex.status' || definition.id === 'codex.threads.list' ? enableCodexGateway : definition.enabledByDefault;
+    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.id === 'codex.status' || definition.id === 'codex.threads.list' || definition.id === 'codex.thread.start' || definition.id === 'codex.turn.start' ? enableCodexGateway : definition.enabledByDefault;
     if (!actionEnabled) {
       audit(request, auditSink, 'rejected', 'action_disabled', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'ACTION_DISABLED', message: `${definition.id} is not enabled in the starter` } });
@@ -267,6 +304,21 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('codex.threads.updated', { requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+    }
+    if (definition.id === 'codex.thread.start' || definition.id === 'codex.turn.start') {
+      const startedAt = performance.now();
+      try {
+        const result = definition.id === 'codex.thread.start'
+          ? startThread ? await startThread(CodexThreadStartInputSchema.parse(bodyResult.data.input).projectId, CodexThreadStartInputSchema.parse(bodyResult.data.input).title) : undefined
+          : startTurn ? await startTurn(CodexTurnStartInputSchema.parse(bodyResult.data.input).threadId, CodexTurnStartInputSchema.parse(bodyResult.data.input).prompt) : undefined;
+        if (result === undefined) return reply.code(501).send({ requestId: request.requestId, error: { code: 'NOT_CONFIGURED', message: 'Codex task control is not configured' } });
+        audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: performance.now() - startedAt });
+        events.publish('codex.task.updated', { actionId: definition.id, requestId: request.requestId });
+        return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+      } catch {
+        audit(request, auditSink, 'failed', 'adapter_failed', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'failed', durationMs: performance.now() - startedAt });
+        return reply.code(502).send({ requestId: request.requestId, error: { code: 'ADAPTER_FAILED', message: 'The Codex task adapter failed' } });
+      }
     }
     if (definition.id === 'android.kdeconnect.status' || definition.id === 'android.adb.status' || definition.id === 'gaming.sunshine.status') {
       const result = await integrationStatus();

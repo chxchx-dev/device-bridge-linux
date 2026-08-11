@@ -26,5 +26,7 @@ export const actionRegistry: Readonly<Record<ActionId, ActionDefinition>> = {
   'android.adb.status': { id: 'android.adb.status', risk: 'R0', capability: 'android:read', enabledByDefault: true, confirmation: 'none', description: 'Read ADB connectivity state' },
   'codex.status': { id: 'codex.status', risk: 'R0', capability: 'codex:read', enabledByDefault: false, confirmation: 'none', description: 'Read Codex gateway state' },
   'codex.threads.list': { id: 'codex.threads.list', risk: 'R0', capability: 'codex:read', enabledByDefault: false, confirmation: 'none', description: 'List active Codex thread metadata' },
+  'codex.thread.start': { id: 'codex.thread.start', risk: 'R1', capability: 'codex:control', enabledByDefault: false, confirmation: 'required', description: 'Start a Codex thread in a registered project' },
+  'codex.turn.start': { id: 'codex.turn.start', risk: 'R1', capability: 'codex:control', enabledByDefault: false, confirmation: 'required', description: 'Start a Codex task in an existing thread' },
   'codex.approval.respond': { id: 'codex.approval.respond', risk: 'R3', capability: 'codex:approve', enabledByDefault: false, confirmation: 'step-up', description: 'Respond to a pending Codex approval' },
 };

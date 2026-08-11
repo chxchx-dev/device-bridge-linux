@@ -171,6 +171,25 @@ test('Codex thread metadata is read-only and capability-scoped', async () => {
   await app.close();
 });
 
+test('Codex thread start requires explicit confirmation and accepts only a project ID', async () => {
+  const token = 'device-token-for-codex-control-test-1234567890';
+  const store = new PairingStore(['codex:control']);
+  store.seedDevice(deviceId, token);
+  let startedProject = '';
+  const app = createApp({ store, enableCodexGateway: true, codexThreadStart: async (projectId, title) => {
+    startedProject = `${projectId}:${title ?? ''}`;
+    return { threadId: 'thread-control', projectPath: '/workspace/project', title, status: 'idle', lastEventAt: '2026-08-11T00:00:00.000Z', createdAt: '2026-08-11T00:00:00.000Z' };
+  } });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+  const missingConfirmation = await app.inject({ method: 'POST', url: '/v1/actions/codex.thread.start', headers, payload: { input: { projectId: 'devicebridge' } } });
+  assert.equal(missingConfirmation.statusCode, 409);
+  const challenge = await app.inject({ method: 'GET', url: '/v1/actions/codex.thread.start/challenge', headers });
+  const response = await app.inject({ method: 'POST', url: '/v1/actions/codex.thread.start', headers, payload: { input: { projectId: 'devicebridge', title: 'Phase 06' }, confirmation: { challengeId: challenge.json().challengeId } } });
+  assert.equal(response.statusCode, 200);
+  assert.equal(startedProject, 'devicebridge:Phase 06');
+  await app.close();
+});
+
 test('scoped integration status actions enforce capabilities and return only their adapter result', async () => {
   const token = 'device-token-for-scoped-integration-test-1234567890';
   const store = new PairingStore(['system:read', 'android:read', 'gaming:read']);
