@@ -77,7 +77,7 @@ envía comandos, rutas arbitrarias ni scripts para que Fedora los ejecute.
 
 ### Bloque 1 — Codex event timeline
 
-Estado: `backend completado; consola Android pendiente`.
+Estado: `implementado; prueba manual end-to-end pendiente`.
 
 Objetivo: mostrar la ejecución de una tarea como una consola viva, sin exponer
 stdout crudo ni secretos.
@@ -92,12 +92,12 @@ Trabajo:
 - [x] Emitir los eventos seguros por el WebSocket autenticado existente.
 - [x] Persistir solo metadata no secreta y truncada.
 - [x] Exponer `codex.events.list` con capability `codex:read`.
-- [ ] Consumir y renderizar el timeline en Android.
+- [x] Consumir y renderizar el timeline en Android.
 - Mantener el mensaje final separado del timeline.
 
 Criterios de aceptación:
 
-- [ ] Android muestra eventos en tiempo real durante una tarea.
+- [x] Android muestra eventos en tiempo real durante una tarea.
 - Un evento nunca contiene stdout/stderr sin filtrar, tokens, prompts
   completos ni rutas fuera del proyecto registrado.
 - Un thread completado conserva un resumen acotado después de reiniciar Bridge.
@@ -297,3 +297,13 @@ cd apps/mobile/android && ./gradlew assembleDebug
   para compatibilidad.
 - `codex.events.list` requiere `codex:read` y valida thread/limit con Zod.
 - Gateway, Bridge y monorepo completo pasaron typecheck y tests.
+
+### 2026-08-11 — Bloque 1, cliente Android
+
+- Android consume `codex.events.list` al seleccionar un thread.
+- Android añade eventos seguros recibidos por `codex.task.event` sin duplicarlos
+  y conserva una ventana local de 100 eventos.
+- La pestaña Codex muestra un timeline compacto con hora, tipo, resumen, archivo
+  afectado y detalle limitado.
+- La prueba manual de una tarea real desde Samsung queda pendiente antes de
+  cerrar formalmente el bloque.

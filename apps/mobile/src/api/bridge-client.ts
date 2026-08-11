@@ -46,6 +46,7 @@ export type CodexThreadMetadata = {
   createdAt: string;
 };
 export type CodexApprovalMetadata = { approvalId: string; method: string; threadId: string | null; turnId: string | null; itemId: string | null; kind: 'command' | 'file-change' | 'permissions' | 'other'; cwd: string | null; summary: string; reason: string | null; risk: 'R1' | 'R2' | 'R3'; createdAt: string };
+export type CodexTaskEvent = { eventId: string; threadId: string; kind: 'task.received' | 'thread.started' | 'turn.started' | 'progress' | 'item.started' | 'item.completed' | 'file.changed' | 'approval.requested' | 'turn.completed' | 'task.failed'; method: string; summary: string; detail: string | null; filePath: string | null; createdAt: string };
 
 type ErrorBody = { error?: { message?: string } };
 
@@ -96,6 +97,10 @@ export class BridgeClient {
 
   getCodexThreads(session: StoredSession): Promise<{ result: CodexThreadMetadata[] }> {
     return this.request('/v1/actions/codex.threads.list', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
+  }
+
+  getCodexEvents(session: StoredSession, threadId: string): Promise<{ result: CodexTaskEvent[] }> {
+    return this.request('/v1/actions/codex.events.list', session, { method: 'POST', body: JSON.stringify({ input: { threadId, limit: 100 } }) });
   }
 
   startCodexThread(session: StoredSession, projectId: string, title: string | null, challengeId: string): Promise<{ result: CodexThreadMetadata }> {
