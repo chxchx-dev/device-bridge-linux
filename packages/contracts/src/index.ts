@@ -19,6 +19,7 @@ export const ActionIdSchema = z.enum([
   'gaming.sunshine.stop',
   'android.adb.status',
   'codex.status',
+  'codex.threads.list',
   'codex.approval.respond',
 ]);
 export type ActionId = z.infer<typeof ActionIdSchema>;

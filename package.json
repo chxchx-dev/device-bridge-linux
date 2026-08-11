@@ -16,6 +16,6 @@
     "check:prereqs": "bash scripts/check-prereqs.sh"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5"
   }
 }

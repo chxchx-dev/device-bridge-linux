@@ -34,6 +34,14 @@ export type CodexGatewayStatus = {
   connected: boolean;
   cliVersion: string | null;
 };
+export type CodexThreadMetadata = {
+  threadId: string;
+  projectPath: string;
+  title: string | null;
+  status: 'idle' | 'running' | 'waiting-approval' | 'completed' | 'failed';
+  lastEventAt: string;
+  createdAt: string;
+};
 
 type ErrorBody = { error?: { message?: string } };
 
@@ -80,6 +88,10 @@ export class BridgeClient {
 
   getCodexStatus(session: StoredSession): Promise<{ result: CodexGatewayStatus }> {
     return this.request('/v1/actions/codex.status', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
+  }
+
+  getCodexThreads(session: StoredSession): Promise<{ result: CodexThreadMetadata[] }> {
+    return this.request('/v1/actions/codex.threads.list', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
   }
 
   switchMode(session: StoredSession, target: Mode, challengeId: string): Promise<{ result: ModeStatus }> {

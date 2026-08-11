@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
 import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, DeviceIdSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
 import { actionRegistry } from '@devicebridge/command-registry';
-import { probeCodexGateway, type CodexGatewayStatus } from '@devicebridge/codex-gateway';
+import { CodexThreadStore, probeCodexGateway, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
 import { authenticate, type AuthContext } from './auth.js';
 import { PairingStore } from './pairing.js';
 import { readDeviceStatus } from './system.js';
@@ -90,6 +90,8 @@ export interface AppOptions {
   scrcpyStart?: () => Promise<ScrcpyStartResult>;
   sunshineControl?: (operation: SunshineOperation) => Promise<SunshineControlResult>;
   codexGatewayStatus?: () => Promise<CodexGatewayStatus>;
+  codexThreadStore?: CodexThreadStore;
+  codexThreadList?: () => CodexThreadMetadata[];
   modeOrchestrator?: ModeOrchestrator;
 }
 
@@ -108,6 +110,8 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const enableModes = options.enableModes ?? process.env.DEVICEBRIDGE_ENABLE_MODES === 'true';
   const enableCodexGateway = options.enableCodexGateway ?? process.env.CODEX_GATEWAY_ENABLED === 'true';
   const codexGatewayStatus = options.codexGatewayStatus ?? probeCodexGateway;
+  const codexThreadStore = options.codexThreadStore ?? new CodexThreadStore();
+  const codexThreadList = options.codexThreadList ?? (() => codexThreadStore.list());
   const modes = options.modeOrchestrator ?? new ModeOrchestrator({ local: createLocalDevAdapter(), sunshine: sunshineControl });
   const devDeviceId = options.devDeviceId ?? process.env.DEVICEBRIDGE_DEVICE_ID;
   const devToken = options.devToken ?? process.env.DEVICEBRIDGE_DEV_TOKEN;
@@ -164,7 +168,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/v1/actions', async (request) => {
     audit(request, auditSink, 'accepted');
-    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : id === 'codex.status' ? enableCodexGateway : enabledByDefault, confirmation, description })) };
+    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : id === 'codex.status' || id === 'codex.threads.list' ? enableCodexGateway : enabledByDefault, confirmation, description })) };
   });
 
   app.get('/v1/actions/:actionId/challenge', async (request, reply) => {
@@ -204,7 +208,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'rejected', 'insufficient_capability', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'denied', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'INSUFFICIENT_CAPABILITY', message: 'The paired device lacks the required capability' } });
     }
-    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.id === 'codex.status' ? enableCodexGateway : definition.enabledByDefault;
+    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.id === 'codex.status' || definition.id === 'codex.threads.list' ? enableCodexGateway : definition.enabledByDefault;
     if (!actionEnabled) {
       audit(request, auditSink, 'rejected', 'action_disabled', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'ACTION_DISABLED', message: `${definition.id} is not enabled in the starter` } });
@@ -257,6 +261,12 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
         audit(request, auditSink, 'failed', 'adapter_failed', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'failed', durationMs: performance.now() - startedAt });
         return reply.code(502).send({ requestId: request.requestId, error: { code: 'ADAPTER_FAILED', message: 'The Codex gateway adapter failed' } });
       }
+    }
+    if (definition.id === 'codex.threads.list') {
+      const result = codexThreadList();
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      events.publish('codex.threads.updated', { requestId: request.requestId });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
     }
     if (definition.id === 'android.kdeconnect.status' || definition.id === 'android.adb.status' || definition.id === 'gaming.sunshine.status') {
       const result = await integrationStatus();

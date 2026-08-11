@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
+export { CodexThreadStore } from './thread-store.js';
+export type { CodexThreadMetadata, CodexThreadStatus } from './thread-store.js';
 
 /** Do not expose this module directly to the network. */
 export interface CodexGatewayStatus {

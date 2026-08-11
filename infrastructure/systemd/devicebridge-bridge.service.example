@@ -8,6 +8,7 @@ Type=simple
 WorkingDirectory=%h/devicebridge
 EnvironmentFile=%h/devicebridge/.env
 Environment=DEVICEBRIDGE_ENABLE_MODES=true
+Environment=DEVICEBRIDGE_CODEX_DB=%h/.local/state/devicebridge/codex.sqlite
 ExecStart=/usr/bin/node %h/devicebridge/services/bridge-api/dist/index.js
 Restart=on-failure
 RestartSec=3

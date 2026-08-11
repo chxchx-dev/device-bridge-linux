@@ -4,6 +4,7 @@ import { createApp } from './index.js';
 import { PairingStore, pairingCodeForToken } from './pairing.js';
 import { createSystemSessionAdapter } from './system-actions.js';
 import { ModeOrchestrator } from './modes.js';
+import { CodexThreadStore } from '@devicebridge/codex-gateway';
 
 const deviceId = 'android-a17-test';
 const pairingToken = 'pairing-token-for-tests-1234567890';
@@ -153,6 +154,20 @@ test('Codex status is capability-scoped and uses the gateway boundary', async ()
   });
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json().result, { enabled: true, mode: 'app-server', connected: true, cliVersion: 'test' });
+  await app.close();
+});
+
+test('Codex thread metadata is read-only and capability-scoped', async () => {
+  const token = 'device-token-for-codex-thread-test-1234567890';
+  const store = new PairingStore(['codex:read']);
+  store.seedDevice(deviceId, token);
+  const threads = new CodexThreadStore();
+  threads.upsert({ threadId: 'thread-test', projectPath: '/workspace/project', title: 'Demo', status: 'running', lastEventAt: '2026-08-11T00:00:00.000Z', createdAt: '2026-08-11T00:00:00.000Z' });
+  const app = createApp({ store, enableCodexGateway: true, codexThreadStore: threads });
+  const response = await app.inject({ method: 'POST', url: '/v1/actions/codex.threads.list', headers: { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId }, payload: {} });
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json().result[0].threadId, 'thread-test');
+  threads.close();
   await app.close();
 });
 

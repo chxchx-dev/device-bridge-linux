@@ -52,3 +52,13 @@ The React console keeps the paired device token only in component memory. It
 does not use localStorage, cookies or URL parameters for credentials. A page
 refresh requires pairing again until the native Android client provides a
 dedicated secure storage strategy.
+
+## ADR-009 — Native SQLite for Codex thread metadata
+**Status:** Accepted for Phase 06
+
+Codex thread metadata is stored with Node's native `node:sqlite` API. The
+database contains only thread ID, project path, title and lifecycle timestamps;
+prompts, tokens, process output and approval payloads are excluded. The runtime
+requirement is Node `>=22.5`, enforced in the workspace engine and Fedora
+service template. The database path is local operational state and is ignored
+by Git.

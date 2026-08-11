@@ -25,5 +25,6 @@ export const actionRegistry: Readonly<Record<ActionId, ActionDefinition>> = {
   'gaming.sunshine.stop': { id: 'gaming.sunshine.stop', risk: 'R1', capability: 'gaming:stop', enabledByDefault: false, confirmation: 'required', description: 'Stop configured Sunshine service' },
   'android.adb.status': { id: 'android.adb.status', risk: 'R0', capability: 'android:read', enabledByDefault: true, confirmation: 'none', description: 'Read ADB connectivity state' },
   'codex.status': { id: 'codex.status', risk: 'R0', capability: 'codex:read', enabledByDefault: false, confirmation: 'none', description: 'Read Codex gateway state' },
+  'codex.threads.list': { id: 'codex.threads.list', risk: 'R0', capability: 'codex:read', enabledByDefault: false, confirmation: 'none', description: 'List active Codex thread metadata' },
   'codex.approval.respond': { id: 'codex.approval.respond', risk: 'R3', capability: 'codex:approve', enabledByDefault: false, confirmation: 'step-up', description: 'Respond to a pending Codex approval' },
 };
