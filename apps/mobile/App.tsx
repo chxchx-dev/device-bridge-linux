@@ -161,7 +161,7 @@ export default function App() {
   const statusAction = useMemo(() => actions.find((action) => action.id === 'system.status'), [actions]);
   const modeSwitchAction = useMemo(() => actions.find((action) => action.id === 'mode.switch'), [actions]);
   const integrationAction = useMemo(() => actions.find((action) => action.id === 'integrations.status'), [actions]);
-  const enabledActions = useMemo(() => actions.filter((action) => !['system.status', 'system.session.rotate', 'mode.status', 'mode.switch', 'integrations.status', 'codex.status', 'codex.threads.list', 'codex.thread.start', 'codex.turn.start', 'codex.approvals.list', 'codex.approval.respond'].includes(action.id) && action.enabledByDefault), [actions]);
+  const enabledActions = useMemo(() => actions.filter((action) => !['system.status', 'system.session.rotate', 'mode.status', 'mode.switch', 'integrations.status', 'codex.status', 'codex.threads.list', 'codex.events.list', 'codex.thread.start', 'codex.turn.start', 'codex.approvals.list', 'codex.approval.respond'].includes(action.id) && action.enabledByDefault), [actions]);
 
   return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <StatusBar hidden barStyle="light-content" />

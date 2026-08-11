@@ -21,6 +21,7 @@ export const ActionIdSchema = z.enum([
   'android.adb.status',
   'codex.status',
   'codex.threads.list',
+  'codex.events.list',
   'codex.thread.start',
   'codex.turn.start',
   'codex.approvals.list',
@@ -38,8 +39,23 @@ export const CodexThreadStartInputSchema = z.object({ projectId: z.string().rege
 export type CodexThreadStartInput = z.infer<typeof CodexThreadStartInputSchema>;
 export const CodexTurnStartInputSchema = z.object({ threadId: z.string().regex(/^[A-Za-z0-9._:-]{1,200}$/), prompt: z.string().trim().min(1).max(20_000) });
 export type CodexTurnStartInput = z.infer<typeof CodexTurnStartInputSchema>;
+export const CodexEventsListInputSchema = z.object({ threadId: z.string().regex(/^[A-Za-z0-9._:-]{1,200}$/), limit: z.number().int().min(1).max(100).default(100) });
+export type CodexEventsListInput = z.infer<typeof CodexEventsListInputSchema>;
 export const CodexApprovalRespondInputSchema = z.object({ approvalId: z.string().uuid(), decision: z.enum(['approve', 'deny']) });
 export type CodexApprovalRespondInput = z.infer<typeof CodexApprovalRespondInputSchema>;
+
+export const CodexTaskEventKindSchema = z.enum(['task.received', 'thread.started', 'turn.started', 'progress', 'item.started', 'item.completed', 'file.changed', 'approval.requested', 'turn.completed', 'task.failed']);
+export const CodexTaskEventSchema = z.object({
+  eventId: z.string().uuid(),
+  threadId: z.string().min(1).max(200),
+  kind: CodexTaskEventKindSchema,
+  method: z.string().regex(/^[A-Za-z][A-Za-z0-9_./:-]{0,120}$/),
+  summary: z.string().min(1).max(120),
+  detail: z.string().max(500).nullable(),
+  filePath: z.string().max(500).nullable(),
+  createdAt: z.string().datetime(),
+});
+export type CodexTaskEvent = z.infer<typeof CodexTaskEventSchema>;
 
 export const DeviceIdSchema = z.string().regex(/^(android|fedora)-[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/, 'Invalid DeviceBridge device ID');
 export type DeviceId = z.infer<typeof DeviceIdSchema>;

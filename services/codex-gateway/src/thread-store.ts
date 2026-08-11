@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import type { CodexTaskEvent } from './task-events.js';
 
 export type CodexThreadStatus = 'idle' | 'running' | 'waiting-approval' | 'completed' | 'failed';
 export type CodexFileChange = { path: string; kind: string; diff: string | null };
@@ -49,6 +50,17 @@ export class CodexThreadStore {
         changed_files TEXT,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS codex_task_events (
+        event_id TEXT PRIMARY KEY,
+        thread_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        method TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        detail TEXT,
+        file_path TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_codex_task_events_thread_created ON codex_task_events(thread_id, created_at);
     `);
     try { this.database.exec('ALTER TABLE codex_threads ADD COLUMN last_event TEXT'); } catch { /* Existing database already migrated. */ }
     try { this.database.exec('ALTER TABLE codex_threads ADD COLUMN last_message TEXT'); } catch { /* Existing database already migrated. */ }
@@ -78,6 +90,25 @@ export class CodexThreadStore {
   list(limit = 20): CodexThreadMetadata[] {
     const rows = this.database.prepare('SELECT * FROM codex_threads ORDER BY last_event_at DESC LIMIT ?').all(limit) as unknown as ThreadRow[];
     return rows.map((row) => this.fromRow(row));
+  }
+
+  appendEvent(event: CodexTaskEvent): void {
+    this.database.prepare(`
+      INSERT INTO codex_task_events(event_id, thread_id, kind, method, summary, detail, file_path, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(event.eventId, event.threadId, event.kind, event.method, event.summary, event.detail, event.filePath, event.createdAt);
+    this.database.prepare(`
+      DELETE FROM codex_task_events WHERE thread_id = ? AND event_id NOT IN
+        (SELECT event_id FROM codex_task_events WHERE thread_id = ? ORDER BY created_at DESC LIMIT 100)
+    `).run(event.threadId, event.threadId);
+  }
+
+  listEvents(threadId: string, limit = 100): CodexTaskEvent[] {
+    const rows = this.database.prepare(`
+      SELECT event_id, thread_id, kind, method, summary, detail, file_path, created_at
+      FROM codex_task_events WHERE thread_id = ? ORDER BY created_at DESC LIMIT ?
+    `).all(threadId, Math.min(Math.max(limit, 1), 100)) as unknown as Array<{ event_id: string; thread_id: string; kind: CodexTaskEvent['kind']; method: string; summary: string; detail: string | null; file_path: string | null; created_at: string }>;
+    return rows.reverse().map((row) => ({ eventId: row.event_id, threadId: row.thread_id, kind: row.kind, method: row.method, summary: row.summary, detail: row.detail, filePath: row.file_path, createdAt: row.created_at }));
   }
 
   close(): void { this.database.close(); }

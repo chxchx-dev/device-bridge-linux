@@ -77,25 +77,27 @@ envía comandos, rutas arbitrarias ni scripts para que Fedora los ejecute.
 
 ### Bloque 1 — Codex event timeline
 
-Estado: `pendiente`.
+Estado: `backend completado; consola Android pendiente`.
 
 Objetivo: mostrar la ejecución de una tarea como una consola viva, sin exponer
 stdout crudo ni secretos.
 
 Trabajo:
 
-- Definir un contrato `CodexTaskEvent` con tipos acotados:
+- [x] Definir un contrato `CodexTaskEvent` compartido con tipos acotados:
   `task.received`, `thread.started`, `turn.started`, `progress`,
   `file.changed`, `approval.requested`, `turn.completed`, `task.failed`.
-- Reducir cada evento del App Server a metadata segura y limitada.
-- Mantener una ventana acotada de eventos por thread.
-- Emitir los eventos por el WebSocket autenticado existente.
-- Persistir solo metadata no secreta y truncada.
+- [x] Reducir cada evento del App Server a metadata segura y limitada.
+- [x] Mantener una ventana acotada de 100 eventos por thread.
+- [x] Emitir los eventos seguros por el WebSocket autenticado existente.
+- [x] Persistir solo metadata no secreta y truncada.
+- [x] Exponer `codex.events.list` con capability `codex:read`.
+- [ ] Consumir y renderizar el timeline en Android.
 - Mantener el mensaje final separado del timeline.
 
 Criterios de aceptación:
 
-- Android muestra eventos en tiempo real durante una tarea.
+- [ ] Android muestra eventos en tiempo real durante una tarea.
 - Un evento nunca contiene stdout/stderr sin filtrar, tokens, prompts
   completos ni rutas fuera del proyecto registrado.
 - Un thread completado conserva un resumen acotado después de reiniciar Bridge.
@@ -284,3 +286,14 @@ cd apps/mobile/android && ./gradlew assembleDebug
 - Se decidió priorizar el timeline de eventos y la consola Codex.
 - Se decidió usar perfiles declarativos para evolucionar Dev/Game.
 - Se mantiene fuera de alcance el shell remoto genérico y el desbloqueo.
+
+### 2026-08-11 — Bloque 1, backend
+
+- Se creó `CodexTaskEvent` con schema compartido en `packages/contracts`.
+- El gateway reduce eventos del App Server a tipos, summaries, detalles y rutas
+  acotadas; los secretos se redactan y las rutas fuera del proyecto se omiten.
+- SQLite conserva como máximo 100 eventos por thread.
+- Bridge publica `codex.task.event` y mantiene `codex.event` con payload seguro
+  para compatibilidad.
+- `codex.events.list` requiere `codex:read` y valida thread/limit con Zod.
+- Gateway, Bridge y monorepo completo pasaron typecheck y tests.

@@ -6,6 +6,8 @@ export { CodexAppServer } from './app-server.js';
 export type { CodexApprovalRequest, CodexAppServerOptions, CodexServerEvent } from './app-server.js';
 export { CodexApprovalBroker } from './approval-broker.js';
 export type { CodexApprovalDecision, CodexApprovalMetadata, CodexApprovalRisk } from './approval-broker.js';
+export { toSafeCodexTaskEvent } from './task-events.js';
+export type { CodexTaskEvent, CodexTaskEventKind } from './task-events.js';
 
 /** Do not expose this module directly to the network. */
 export interface CodexGatewayStatus {
