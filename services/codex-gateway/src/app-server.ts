@@ -44,6 +44,7 @@ export class CodexAppServer {
   private lines?: Interface;
   private nextId = 2;
   private readonly pending = new Map<number | string, PendingRequest>();
+  private readonly activeThreads = new Set<string>();
 
   constructor(options: CodexAppServerOptions) {
     this.options = { ...options, timeoutMs: options.timeoutMs ?? 15_000 };
@@ -55,7 +56,7 @@ export class CodexAppServer {
     this.child = child;
     this.lines = createInterface({ input: child.stdout });
     child.once('error', (error) => this.failPending(error instanceof Error ? error : new Error('Codex App Server process failed')));
-    child.once('exit', () => this.failPending(new Error('Codex App Server exited')));
+    child.once('exit', () => { this.activeThreads.clear(); this.failPending(new Error('Codex App Server exited')); });
     this.lines.on('line', (line) => this.handleLine(line));
     await this.request('initialize', { clientInfo: { name: 'devicebridge', title: 'DeviceBridge', version: '0.1.0' } });
     this.write({ method: 'initialized', params: {} });
@@ -66,13 +67,19 @@ export class CodexAppServer {
     if (!safeProject) throw new Error('Project is not registered for Codex control');
     await this.connect();
     const result = await this.request('thread/start', { cwd: safeProject, approvalPolicy: 'untrusted', sandbox: 'workspace-write' });
-    return { threadId: threadIdFromResult(result), projectPath: safeProject, title };
+    const threadId = threadIdFromResult(result);
+    this.activeThreads.add(threadId);
+    return { threadId, projectPath: safeProject, title };
   }
 
   async startTurn(threadId: string, prompt: string): Promise<unknown> {
     if (!/^[A-Za-z0-9._:-]{1,200}$/.test(threadId)) throw new Error('Invalid Codex thread ID');
     if (prompt.length < 1 || prompt.length > 20_000) throw new Error('Invalid Codex prompt');
     await this.connect();
+    if (!this.activeThreads.has(threadId)) {
+      await this.request('thread/resume', { threadId });
+      this.activeThreads.add(threadId);
+    }
     return this.request('turn/start', { threadId, input: [{ type: 'text', text: prompt }] });
   }
 
@@ -80,6 +87,7 @@ export class CodexAppServer {
     this.lines?.close();
     this.child?.kill('SIGTERM');
     this.child = undefined;
+    this.activeThreads.clear();
     this.failPending(new Error('Codex App Server closed'));
   }
 
