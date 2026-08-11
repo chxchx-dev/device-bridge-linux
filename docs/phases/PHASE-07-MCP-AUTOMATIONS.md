@@ -4,14 +4,14 @@
 Make DeviceBridge a first-class typed tool provider.
 
 ## MCP tools
-- [ ] `device_status`
-- [ ] `list_actions`
+- [x] `device_status`
+- [x] `list_actions`
 - [ ] `run_safe_action`
-- [ ] `list_projects`
+- [x] `list_projects`
 - [ ] `start_dev_mode`
 - [ ] `start_game_mode`
-- [ ] `sunshine_status`
-- [ ] `android_adb_status`
+- [x] `sunshine_status`
+- [x] `android_adb_status`
 
 ## Rules
 - Tool descriptions must state side effects.

@@ -3,11 +3,15 @@
 
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
+model = "gpt-5.6-luna"
+model_reasoning_effort = "low"
 
 [sandbox_workspace_write]
 network_access = false
 
-# Add DeviceBridge MCP only in Phase 07 after it exists and has passed security tests.
-# [mcp_servers.devicebridge]
-# command = "node"
-# args = ["services/mcp-server/dist/index.js"]
+[mcp_servers.devicebridge]
+command = "node"
+args = ["services/mcp-server/dist/index.js"]
+
+[mcp_servers.devicebridge.env]
+DEVICEBRIDGE_MCP_CAPABILITIES = "system:read,android:read,gaming:read,mode:read,codex:read"

@@ -1,0 +1,22 @@
+{
+  "name": "@devicebridge/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@devicebridge/command-registry": "workspace:*",
+    "@devicebridge/bridge-api": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.17.5",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
