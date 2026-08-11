@@ -28,6 +28,12 @@ export type IntegrationStatus = {
   scrcpy: { available: boolean; version: string | null };
   sunshine: { available: boolean; active: boolean };
 };
+export type CodexGatewayStatus = {
+  enabled: boolean;
+  mode: 'disabled' | 'sdk' | 'app-server';
+  connected: boolean;
+  cliVersion: string | null;
+};
 
 type ErrorBody = { error?: { message?: string } };
 
@@ -70,6 +76,10 @@ export class BridgeClient {
 
   getModeStatus(session: StoredSession): Promise<{ result: ModeStatus }> {
     return this.request('/v1/actions/mode.status', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
+  }
+
+  getCodexStatus(session: StoredSession): Promise<{ result: CodexGatewayStatus }> {
+    return this.request('/v1/actions/codex.status', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
   }
 
   switchMode(session: StoredSession, target: Mode, challengeId: string): Promise<{ result: ModeStatus }> {

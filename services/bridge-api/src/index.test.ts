@@ -136,6 +136,26 @@ test('integration status uses the fixed adapter boundary', async () => {
   await app.close();
 });
 
+test('Codex status is capability-scoped and uses the gateway boundary', async () => {
+  const token = 'device-token-for-codex-status-test-1234567890';
+  const store = new PairingStore(['codex:read']);
+  store.seedDevice(deviceId, token);
+  const app = createApp({
+    store,
+    enableCodexGateway: true,
+    codexGatewayStatus: async () => ({ enabled: true, mode: 'app-server', connected: true, cliVersion: 'test' }),
+  });
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/actions/codex.status',
+    headers: { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId },
+    payload: {},
+  });
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json().result, { enabled: true, mode: 'app-server', connected: true, cliVersion: 'test' });
+  await app.close();
+});
+
 test('scoped integration status actions enforce capabilities and return only their adapter result', async () => {
   const token = 'device-token-for-scoped-integration-test-1234567890';
   const store = new PairingStore(['system:read', 'android:read', 'gaming:read']);

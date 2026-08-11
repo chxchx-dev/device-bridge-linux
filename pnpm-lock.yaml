@@ -233,6 +233,9 @@ importers:
 
   services/bridge-api:
     dependencies:
+      '@devicebridge/codex-gateway':
+        specifier: workspace:*
+        version: link:../codex-gateway
       '@devicebridge/command-registry':
         specifier: workspace:*
         version: link:../../packages/command-registry
