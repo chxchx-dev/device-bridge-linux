@@ -20,3 +20,6 @@ Phase 08. Tailscale-only remote access, Wake-on-LAN relay design and opt-in secu
 
 ## Milestone G — Hardened personal product
 Phase 09. Packaging, audits, recovery, observability and release checklist.
+
+## Post-Phase 09 — Control plane evolution
+See [`docs/CONTROL-PLANE-IMPLEMENTATION.md`](docs/CONTROL-PLANE-IMPLEMENTATION.md) for the active implementation plan covering the Codex event console and declarative Dev/Game profiles.
