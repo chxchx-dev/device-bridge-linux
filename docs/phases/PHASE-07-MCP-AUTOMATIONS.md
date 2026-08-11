@@ -6,7 +6,7 @@ Make DeviceBridge a first-class typed tool provider.
 ## MCP tools
 - [x] `device_status`
 - [x] `list_actions`
-- [ ] `run_safe_action`
+- [x] `run_safe_action` (closed R0 read-only catalog with audit events)
 - [x] `list_projects`
 - [x] `start_dev_mode` (disabled by default; requires `mode:control` and explicit confirmation)
 - [x] `start_game_mode` (disabled by default; requires `mode:control` and explicit confirmation)

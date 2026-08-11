@@ -1,5 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { mkdirSync, appendFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { actionRegistry } from '@devicebridge/command-registry';
 import { controlSunshine, readIntegrationStatus } from '@devicebridge/bridge-api/integrations';
@@ -10,6 +13,11 @@ import { readDeviceStatus } from '@devicebridge/bridge-api/system';
 const capabilities = new Set((process.env.DEVICEBRIDGE_MCP_CAPABILITIES ?? 'system:read,android:read,gaming:read,mode:read,codex:read').split(',').map((value) => value.trim()).filter(Boolean));
 const requireCapability = (capability: string): void => { if (!capabilities.has(capability)) throw new Error('MCP capability denied'); };
 const requireConfirmedWrite = (confirmed: boolean): void => { requireCapability('mode:control'); if (!confirmed) throw new Error('Explicit confirmation is required for mode changes'); };
+const auditPath = process.env.DEVICEBRIDGE_MCP_AUDIT_LOG ?? '.local/state/devicebridge/mcp-audit.jsonl';
+const audit = (actionId: string, outcome: 'accepted' | 'rejected' | 'failed', capability: string): void => {
+  mkdirSync(dirname(auditPath), { recursive: true, mode: 0o700 });
+  appendFileSync(auditPath, `${JSON.stringify({ timestamp: new Date().toISOString(), requestId: randomUUID(), actionId, outcome, capability })}\n`, { mode: 0o600 });
+};
 const projects = (process.env.DEVICEBRIDGE_CODEX_PROJECTS ?? '').split(',').flatMap((entry) => {
   const separator = entry.indexOf('=');
   return separator > 0 ? [{ id: entry.slice(0, separator), path: entry.slice(separator + 1) }] : [];
@@ -39,6 +47,24 @@ server.registerTool('sunshine_status', {
 server.registerTool('android_adb_status', {
   title: 'Read Android ADB status', description: 'Read whether the configured Android device is connected through ADB. Read-only.', inputSchema: {}, outputSchema: { status: z.object({ available: z.boolean(), connected: z.boolean(), deviceCount: z.number() }) }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
 }, async () => { requireCapability('android:read'); const status = (await readIntegrationStatus()).adb; return { structuredContent: { status }, content: [{ type: 'text', text: status.connected ? `${status.deviceCount} Android device(s) connected.` : 'No Android device connected.' }] }; });
+
+const safeReadAction = z.enum(['system.status', 'integrations.status', 'android.kdeconnect.status', 'android.adb.status', 'gaming.sunshine.status']);
+const safeReadOutput = z.object({ actionId: z.string(), result: z.record(z.unknown()) });
+server.registerTool('run_safe_action', {
+  title: 'Run a safe read-only action', description: 'Run one declared R0 DeviceBridge status action. The action ID is closed and no shell command or arbitrary process input is accepted.', inputSchema: { actionId: safeReadAction }, outputSchema: { result: safeReadOutput }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+}, async ({ actionId }) => {
+  const capability = actionId.startsWith('android.') ? 'android:read' : actionId.startsWith('gaming.') ? 'gaming:read' : 'system:read';
+  try {
+    requireCapability(capability);
+    const integration = actionId === 'system.status' ? undefined : await readIntegrationStatus();
+    const result = actionId === 'system.status' ? await readDeviceStatus() : actionId === 'integrations.status' ? integration : actionId === 'android.kdeconnect.status' ? integration!.kdeConnect : actionId === 'android.adb.status' ? integration!.adb : integration!.sunshine;
+    audit(actionId, 'accepted', capability);
+    return { structuredContent: { result: { actionId, result } }, content: [{ type: 'text', text: `${actionId} completed.` }] };
+  } catch {
+    audit(actionId, 'rejected', capability);
+    throw new Error('MCP safe action denied');
+  }
+});
 
 const modeInput = { confirmed: z.boolean().describe('Must be true after the user explicitly confirms the mode change.') };
 const modeOutput = { status: z.object({ mode: z.enum(['dev', 'game']).nullable(), transitioning: z.boolean() }) };
