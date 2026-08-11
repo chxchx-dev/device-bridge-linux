@@ -62,3 +62,27 @@ prompts, tokens, process output and approval payloads are excluded. The runtime
 requirement is Node `>=22.5`, enforced in the workspace engine and Fedora
 service template. The database path is local operational state and is ignored
 by Git.
+
+## ADR-010 — Remote wake requires an external relay
+**Status:** Accepted for Phase 08
+
+The Fedora laptop's active Wi-Fi interface does not advertise Wake-on-LAN
+support. DeviceBridge will not pretend that Tailscale can wake a suspended or
+powered-off laptop, and it will not send magic packets from the laptop itself.
+Remote wake may be implemented only through an always-on, tailnet-reachable
+relay on the home LAN (or a router with an equivalent restricted WOL feature).
+The relay destination must be configured locally, strictly allowlisted and
+audited; no arbitrary destination or packet parameters may come from a remote
+request.
+
+Until such a relay is selected and verified, remote wake remains unavailable.
+
+## ADR-011 — Secure unlock remains disabled
+**Status:** Accepted for Phase 08
+
+DeviceBridge will not expose an unlock action while the Fedora/KDE session
+cannot be validated with a device-bound, short-lived challenge and Android
+biometric step-up. Fedora passwords, PAM input, sudo replay and automatic login
+are forbidden. The existing `system.unlock` registry entry remains disabled by
+default and is not an implementation target for this phase without a separate
+security review.
