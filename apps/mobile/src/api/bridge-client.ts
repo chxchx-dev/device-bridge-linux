@@ -40,6 +40,8 @@ export type CodexThreadMetadata = {
   title: string | null;
   status: 'idle' | 'running' | 'waiting-approval' | 'completed' | 'failed';
   lastEventAt: string;
+  lastEvent?: string | null;
+  lastMessage?: string | null;
   createdAt: string;
 };
 export type CodexApprovalMetadata = { approvalId: string; method: string; threadId: string | null; turnId: string | null; itemId: string | null; kind: 'command' | 'file-change' | 'permissions' | 'other'; cwd: string | null; summary: string; reason: string | null; risk: 'R1' | 'R2' | 'R3'; createdAt: string };

@@ -42,6 +42,7 @@ export default function App() {
         const threads = (await client.getCodexThreads(activeSession)).result;
         setCodexThreads(threads);
         if (!selectedThread && threads[0]) setSelectedThread(threads[0].threadId);
+        if (threads[0]?.lastMessage) setMessage(`Codex: ${threads[0].lastMessage}`);
       } catch { setCodexThreads([]); }
     } else setCodexThreads([]);
     if (catalog.actions.some((action) => action.id === 'codex.approvals.list' && action.enabledByDefault)) {

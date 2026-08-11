@@ -131,16 +131,28 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const codexThreadList = options.codexThreadList ?? (() => codexThreadStore.list());
   const events = new EventHub();
   const codexApprovalBroker = options.codexApprovalBroker ?? new CodexApprovalBroker();
+  const updateCodexEvent = (event: { method: string; params: unknown }): void => {
+    events.publish('codex.event', event);
+    const params = typeof event.params === 'object' && event.params !== null ? event.params as Record<string, unknown> : {};
+    const threadId = typeof params.threadId === 'string' ? params.threadId : undefined;
+    const current = threadId ? codexThreadStore.get(threadId) : undefined;
+    if (!current) return;
+    const status = event.method.includes('requestApproval') ? 'waiting-approval' : event.method.includes('turn/completed') ? 'completed' : event.method.includes('turn/failed') ? 'failed' : event.method.includes('turn/started') || event.method.includes('/delta') ? 'running' : current.status;
+    const delta = typeof params.delta === 'string' ? params.delta : typeof params.text === 'string' ? params.text : undefined;
+    const lastMessage = delta ? `${current.lastMessage ?? ''}${delta}`.slice(-4000) : current.lastMessage ?? null;
+    codexThreadStore.upsert({ ...current, status, lastEvent: event.method, lastMessage, lastEventAt: new Date().toISOString() });
+    events.publish('codex.task.updated', { threadId, status });
+  };
   const codexThreadStart = options.codexThreadStart;
   const codexTurnStart = options.codexTurnStart;
   const codexProjects = options.codexProjects ?? configuredCodexProjects(process.env.DEVICEBRIDGE_CODEX_PROJECTS);
-  const codexServer = codexProjects.length ? new CodexAppServer({ allowedProjects: codexProjects.map((project) => project.path), onEvent: (event) => events.publish('codex.event', event), onApproval: async (request) => { const result = codexApprovalBroker.request(request); const pending = codexApprovalBroker.list().at(-1); if (pending) events.publish('codex.approval.requested', pending); return result; } }) : undefined;
+  const codexServer = codexProjects.length ? new CodexAppServer({ allowedProjects: codexProjects.map((project) => project.path), onEvent: updateCodexEvent, onApproval: async (request) => { const result = codexApprovalBroker.request(request); const pending = codexApprovalBroker.list().at(-1); if (pending) { events.publish('codex.approval.requested', pending); updateCodexEvent({ method: request.method, params: request.params }); } return result; } }) : undefined;
   const startThread = codexThreadStart ?? (codexServer ? async (projectId: string, title: string | null): Promise<CodexThreadMetadata> => {
     const project = codexProjects.find((candidate) => candidate.id === projectId);
     if (!project) throw new Error('Unknown Codex project');
     const thread = await codexServer.startThread(project.path, title);
     const now = new Date().toISOString();
-    const metadata: CodexThreadMetadata = { ...thread, status: 'idle', lastEventAt: now, createdAt: now };
+    const metadata: CodexThreadMetadata = { ...thread, status: 'idle', lastEventAt: now, lastEvent: 'thread/started', lastMessage: null, createdAt: now };
     codexThreadStore.upsert(metadata);
     return metadata;
   } : undefined);
