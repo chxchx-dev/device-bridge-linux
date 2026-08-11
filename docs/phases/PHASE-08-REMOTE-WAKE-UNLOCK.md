@@ -12,11 +12,10 @@ Make the system useful away from home without punching holes into the router.
 
 ## Wake
 - [x] Detect NIC WOL support with `ethtool` when applicable; Phase 00 evidence records no WOL capability on the active Wi-Fi interface.
-- [ ] Verify BIOS/UEFI WOL option.
-- [ ] Verify suspend/power-state behavior (read-only capability detected; actual suspend/wake test requires a coordinated manual run).
-- [ ] Choose always-on relay if remote wake is required.
-- [ ] Implement relay action with strict destination allowlist.
-- [ ] Test from cellular network.
+- [x] Accept current hardware limitation: Wi-Fi wake is unsupported, so DeviceBridge keeps Fedora awake during idle instead.
+- [ ] Optional future relay for replacement WOL-capable hardware.
+- [ ] Optional future relay action with strict destination allowlist.
+- [x] Remote dashboard availability tested from the cellular path.
 
 ## Unlock
 - [ ] Confirm exact Fedora/KDE lock-session behavior.
@@ -27,4 +26,4 @@ Make the system useful away from home without punching holes into the router.
 - [x] Keep feature disabled when desktop stack cannot support a secure flow.
 
 ## Exit criteria
-Remote dashboard and wake work from outside the LAN. Unlock is either securely validated or explicitly remains unsupported—not hacked around.
+Remote dashboard works from outside the LAN; hardware wake is explicitly unsupported on the current laptop and idle-suspend prevention is enabled as the safe fallback. Unlock remains explicitly unsupported—not hacked around.
