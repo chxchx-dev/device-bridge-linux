@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 export type CodexThreadStatus = 'idle' | 'running' | 'waiting-approval' | 'completed' | 'failed';
+export type CodexFileChange = { path: string; kind: string; diff: string | null };
 
 export interface CodexThreadMetadata {
   threadId: string;
@@ -12,6 +13,7 @@ export interface CodexThreadMetadata {
   lastEventAt: string;
   lastEvent?: string | null;
   lastMessage?: string | null;
+  changedFiles?: readonly CodexFileChange[];
   createdAt: string;
 }
 
@@ -23,6 +25,7 @@ type ThreadRow = {
   last_event_at: string;
   last_event: string | null;
   last_message: string | null;
+  changed_files: string | null;
   created_at: string;
 };
 
@@ -43,25 +46,28 @@ export class CodexThreadStore {
         last_event_at TEXT NOT NULL,
         last_event TEXT,
         last_message TEXT,
+        changed_files TEXT,
         created_at TEXT NOT NULL
       );
     `);
     try { this.database.exec('ALTER TABLE codex_threads ADD COLUMN last_event TEXT'); } catch { /* Existing database already migrated. */ }
     try { this.database.exec('ALTER TABLE codex_threads ADD COLUMN last_message TEXT'); } catch { /* Existing database already migrated. */ }
+    try { this.database.exec('ALTER TABLE codex_threads ADD COLUMN changed_files TEXT'); } catch { /* Existing database already migrated. */ }
   }
 
   upsert(metadata: CodexThreadMetadata): void {
     this.database.prepare(`
-      INSERT INTO codex_threads(thread_id, project_path, title, status, last_event_at, last_event, last_message, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO codex_threads(thread_id, project_path, title, status, last_event_at, last_event, last_message, changed_files, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(thread_id) DO UPDATE SET
         project_path = excluded.project_path,
         title = excluded.title,
         status = excluded.status,
         last_event_at = excluded.last_event_at,
         last_event = excluded.last_event,
-        last_message = excluded.last_message
-    `).run(metadata.threadId, metadata.projectPath, metadata.title, metadata.status, metadata.lastEventAt, metadata.lastEvent ?? null, metadata.lastMessage ?? null, metadata.createdAt);
+        last_message = excluded.last_message,
+        changed_files = excluded.changed_files
+    `).run(metadata.threadId, metadata.projectPath, metadata.title, metadata.status, metadata.lastEventAt, metadata.lastEvent ?? null, metadata.lastMessage ?? null, metadata.changedFiles ? JSON.stringify(metadata.changedFiles) : null, metadata.createdAt);
   }
 
   get(threadId: string): CodexThreadMetadata | undefined {
@@ -77,6 +83,8 @@ export class CodexThreadStore {
   close(): void { this.database.close(); }
 
   private fromRow(row: ThreadRow): CodexThreadMetadata {
-    return { threadId: row.thread_id, projectPath: row.project_path, title: row.title, status: row.status, lastEventAt: row.last_event_at, lastEvent: row.last_event ?? null, lastMessage: row.last_message ?? null, createdAt: row.created_at };
+    let changedFiles: CodexFileChange[] = [];
+    try { changedFiles = row.changed_files ? JSON.parse(row.changed_files) as CodexFileChange[] : []; } catch { changedFiles = []; }
+    return { threadId: row.thread_id, projectPath: row.project_path, title: row.title, status: row.status, lastEventAt: row.last_event_at, lastEvent: row.last_event ?? null, lastMessage: row.last_message ?? null, changedFiles, createdAt: row.created_at };
   }
 }

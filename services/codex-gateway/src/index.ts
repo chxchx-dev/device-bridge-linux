@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 export { CodexThreadStore } from './thread-store.js';
-export type { CodexThreadMetadata, CodexThreadStatus } from './thread-store.js';
+export type { CodexFileChange, CodexThreadMetadata, CodexThreadStatus } from './thread-store.js';
 export { CodexAppServer } from './app-server.js';
 export type { CodexApprovalRequest, CodexAppServerOptions, CodexServerEvent } from './app-server.js';
 export { CodexApprovalBroker } from './approval-broker.js';

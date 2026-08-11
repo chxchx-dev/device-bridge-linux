@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
 import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, CodexApprovalRespondInputSchema, CodexThreadStartInputSchema, CodexTurnStartInputSchema, DeviceIdSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
 import { actionRegistry } from '@devicebridge/command-registry';
-import { CodexAppServer, CodexApprovalBroker, CodexThreadStore, probeCodexGateway, type CodexApprovalMetadata, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
+import { CodexAppServer, CodexApprovalBroker, CodexThreadStore, probeCodexGateway, type CodexApprovalMetadata, type CodexFileChange, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
 import { authenticate, type AuthContext } from './auth.js';
 import { PairingStore } from './pairing.js';
 import { readDeviceStatus } from './system.js';
@@ -74,6 +74,21 @@ function configuredCodexProjects(value: string | undefined): CodexProject[] {
   }).filter((project): project is CodexProject => project !== undefined);
 }
 
+function safeFileChanges(value: unknown, projectPath: string): CodexFileChange[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 50).flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const record = entry as Record<string, unknown>;
+    const rawPath = typeof record.path === 'string' ? record.path : '';
+    const path = relative(resolve(projectPath), resolve(projectPath, rawPath));
+    if (!path || path.startsWith('..') || isAbsolute(path)) return [];
+    const kind = typeof record.kind === 'string' ? record.kind.slice(0, 40) : 'update';
+    const rawDiff = typeof record.diff === 'string' ? record.diff : null;
+    const diff = rawDiff?.replace(/(token|secret|password|private[_ -]?key)\s*[:=]\s*[^\s]+/gi, '$1=[redacted]').slice(0, 3000) ?? null;
+    return [{ path, kind, diff }];
+  });
+}
+
 class EventHub {
   private readonly clients = new Set<{ send(data: string): void }>();
 
@@ -140,7 +155,10 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
     const status = event.method.includes('requestApproval') ? 'waiting-approval' : event.method.includes('turn/completed') ? 'completed' : event.method.includes('turn/failed') ? 'failed' : event.method.includes('turn/started') || event.method.includes('/delta') ? 'running' : current.status;
     const delta = typeof params.delta === 'string' ? params.delta : typeof params.text === 'string' ? params.text : undefined;
     const lastMessage = delta ? `${current.lastMessage ?? ''}${delta}`.slice(-4000) : current.lastMessage ?? null;
-    codexThreadStore.upsert({ ...current, status, lastEvent: event.method, lastMessage, lastEventAt: new Date().toISOString() });
+    const item = typeof params.item === 'object' && params.item !== null ? params.item as Record<string, unknown> : undefined;
+    const itemChanges = item?.type === 'fileChange' ? safeFileChanges(item.changes, current.projectPath) : [];
+    const changedFiles = itemChanges.length ? [...(current.changedFiles ?? []).filter((file) => !itemChanges.some((change) => change.path === file.path)), ...itemChanges].slice(-50) : current.changedFiles ?? [];
+    codexThreadStore.upsert({ ...current, status, lastEvent: event.method, lastMessage, changedFiles, lastEventAt: new Date().toISOString() });
     events.publish('codex.task.updated', { threadId, status });
   };
   const codexThreadStart = options.codexThreadStart;
