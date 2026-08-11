@@ -59,7 +59,7 @@ export function probeCodexGateway(timeoutMs = 10_000): Promise<CodexGatewayStatu
       try {
         const message = JSON.parse(line) as AppServerMessage;
         if (message.id !== 1 || !message.result?.userAgent) return;
-        const version = message.result.userAgent.match(/codex_vscode\/(\S+)/)?.[1] ?? null;
+        const version = message.result.userAgent.match(/codex_[^/]+\/(\S+)/)?.[1] ?? null;
         finish({ ...base, connected: true, cliVersion: version });
       } catch {
         // Ignore non-protocol lines; no process output is returned to clients.
