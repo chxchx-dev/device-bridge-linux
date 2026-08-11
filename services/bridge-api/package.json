@@ -6,7 +6,9 @@
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
     "./integrations": { "types": "./dist/integrations.d.ts", "import": "./dist/integrations.js" },
-    "./system": { "types": "./dist/system.d.ts", "import": "./dist/system.js" }
+    "./system": { "types": "./dist/system.d.ts", "import": "./dist/system.js" },
+    "./modes": { "types": "./dist/modes.d.ts", "import": "./dist/modes.js" },
+    "./local-services": { "types": "./dist/local-services.d.ts", "import": "./dist/local-services.js" }
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

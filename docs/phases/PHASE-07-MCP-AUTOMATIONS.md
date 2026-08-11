@@ -8,8 +8,8 @@ Make DeviceBridge a first-class typed tool provider.
 - [x] `list_actions`
 - [ ] `run_safe_action`
 - [x] `list_projects`
-- [ ] `start_dev_mode`
-- [ ] `start_game_mode`
+- [x] `start_dev_mode` (disabled by default; requires `mode:control` and explicit confirmation)
+- [x] `start_game_mode` (disabled by default; requires `mode:control` and explicit confirmation)
 - [x] `sunshine_status`
 - [x] `android_adb_status`
 
