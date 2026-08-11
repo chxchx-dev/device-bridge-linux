@@ -4,6 +4,8 @@ export { CodexThreadStore } from './thread-store.js';
 export type { CodexThreadMetadata, CodexThreadStatus } from './thread-store.js';
 export { CodexAppServer } from './app-server.js';
 export type { CodexApprovalRequest, CodexAppServerOptions, CodexServerEvent } from './app-server.js';
+export { CodexApprovalBroker } from './approval-broker.js';
+export type { CodexApprovalDecision, CodexApprovalMetadata, CodexApprovalRisk } from './approval-broker.js';
 
 /** Do not expose this module directly to the network. */
 export interface CodexGatewayStatus {

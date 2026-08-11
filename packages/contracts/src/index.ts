@@ -22,6 +22,7 @@ export const ActionIdSchema = z.enum([
   'codex.threads.list',
   'codex.thread.start',
   'codex.turn.start',
+  'codex.approvals.list',
   'codex.approval.respond',
 ]);
 export type ActionId = z.infer<typeof ActionIdSchema>;
@@ -36,6 +37,8 @@ export const CodexThreadStartInputSchema = z.object({ projectId: z.string().rege
 export type CodexThreadStartInput = z.infer<typeof CodexThreadStartInputSchema>;
 export const CodexTurnStartInputSchema = z.object({ threadId: z.string().regex(/^[A-Za-z0-9._:-]{1,200}$/), prompt: z.string().trim().min(1).max(20_000) });
 export type CodexTurnStartInput = z.infer<typeof CodexTurnStartInputSchema>;
+export const CodexApprovalRespondInputSchema = z.object({ approvalId: z.string().uuid(), decision: z.enum(['approve', 'deny']) });
+export type CodexApprovalRespondInput = z.infer<typeof CodexApprovalRespondInputSchema>;
 
 export const DeviceIdSchema = z.string().regex(/^(android|fedora)-[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/, 'Invalid DeviceBridge device ID');
 export type DeviceId = z.infer<typeof DeviceIdSchema>;

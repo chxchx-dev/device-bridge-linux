@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
-import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, CodexThreadStartInputSchema, CodexTurnStartInputSchema, DeviceIdSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
+import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, CodexApprovalRespondInputSchema, CodexThreadStartInputSchema, CodexTurnStartInputSchema, DeviceIdSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
 import { actionRegistry } from '@devicebridge/command-registry';
-import { CodexAppServer, CodexThreadStore, probeCodexGateway, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
+import { CodexAppServer, CodexApprovalBroker, CodexThreadStore, probeCodexGateway, type CodexApprovalMetadata, type CodexGatewayStatus, type CodexThreadMetadata } from '@devicebridge/codex-gateway';
 import { authenticate, type AuthContext } from './auth.js';
 import { PairingStore } from './pairing.js';
 import { readDeviceStatus } from './system.js';
@@ -108,6 +108,7 @@ export interface AppOptions {
   codexThreadStart?: (projectId: string, title: string | null) => Promise<CodexThreadMetadata>;
   codexTurnStart?: (threadId: string, prompt: string) => Promise<unknown>;
   codexProjects?: readonly CodexProject[];
+  codexApprovalBroker?: CodexApprovalBroker;
   modeOrchestrator?: ModeOrchestrator;
 }
 
@@ -129,10 +130,11 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const codexThreadStore = options.codexThreadStore ?? new CodexThreadStore();
   const codexThreadList = options.codexThreadList ?? (() => codexThreadStore.list());
   const events = new EventHub();
+  const codexApprovalBroker = options.codexApprovalBroker ?? new CodexApprovalBroker();
   const codexThreadStart = options.codexThreadStart;
   const codexTurnStart = options.codexTurnStart;
   const codexProjects = options.codexProjects ?? configuredCodexProjects(process.env.DEVICEBRIDGE_CODEX_PROJECTS);
-  const codexServer = codexProjects.length ? new CodexAppServer({ allowedProjects: codexProjects.map((project) => project.path), onEvent: (event) => events.publish('codex.event', event) }) : undefined;
+  const codexServer = codexProjects.length ? new CodexAppServer({ allowedProjects: codexProjects.map((project) => project.path), onEvent: (event) => events.publish('codex.event', event), onApproval: async (request) => { const result = codexApprovalBroker.request(request); const pending = codexApprovalBroker.list().at(-1); if (pending) events.publish('codex.approval.requested', pending); return result; } }) : undefined;
   const startThread = codexThreadStart ?? (codexServer ? async (projectId: string, title: string | null): Promise<CodexThreadMetadata> => {
     const project = codexProjects.find((candidate) => candidate.id === projectId);
     if (!project) throw new Error('Unknown Codex project');
@@ -203,7 +205,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/v1/actions', async (request) => {
     audit(request, auditSink, 'accepted');
-    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : id === 'codex.status' || id === 'codex.threads.list' || id === 'codex.thread.start' || id === 'codex.turn.start' ? enableCodexGateway : enabledByDefault, confirmation, description })) };
+    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : id === 'codex.status' || id === 'codex.threads.list' || id === 'codex.thread.start' || id === 'codex.turn.start' || id === 'codex.approvals.list' || id === 'codex.approval.respond' ? enableCodexGateway : enabledByDefault, confirmation, description })) };
   });
 
   app.get('/v1/actions/:actionId/challenge', async (request, reply) => {
@@ -239,13 +241,14 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
     }
     if (idResult.data === 'codex.thread.start' && !CodexThreadStartInputSchema.safeParse(bodyResult.data.input).success) return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid Codex project input' } });
     if (idResult.data === 'codex.turn.start' && !CodexTurnStartInputSchema.safeParse(bodyResult.data.input).success) return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid Codex turn input' } });
+    if (idResult.data === 'codex.approval.respond' && !CodexApprovalRespondInputSchema.safeParse(bodyResult.data.input).success) return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid Codex approval response' } });
     const definition = actionRegistry[idResult.data];
     const hasCapability = request.authContext?.capabilities.includes(definition.capability) ?? false;
     if (!hasCapability) {
       audit(request, auditSink, 'rejected', 'insufficient_capability', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'denied', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'INSUFFICIENT_CAPABILITY', message: 'The paired device lacks the required capability' } });
     }
-    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.id === 'codex.status' || definition.id === 'codex.threads.list' || definition.id === 'codex.thread.start' || definition.id === 'codex.turn.start' ? enableCodexGateway : definition.enabledByDefault;
+    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.id === 'codex.status' || definition.id === 'codex.threads.list' || definition.id === 'codex.thread.start' || definition.id === 'codex.turn.start' || definition.id === 'codex.approvals.list' || definition.id === 'codex.approval.respond' ? enableCodexGateway : definition.enabledByDefault;
     if (!actionEnabled) {
       audit(request, auditSink, 'rejected', 'action_disabled', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'ACTION_DISABLED', message: `${definition.id} is not enabled in the starter` } });
@@ -304,6 +307,19 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('codex.threads.updated', { requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+    }
+    if (definition.id === 'codex.approvals.list') {
+      const result: CodexApprovalMetadata[] = codexApprovalBroker.list();
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+    }
+    if (definition.id === 'codex.approval.respond') {
+      const input = CodexApprovalRespondInputSchema.parse(bodyResult.data.input);
+      const responded = codexApprovalBroker.respond(input.approvalId, input.decision);
+      if (!responded) return reply.code(404).send({ requestId: request.requestId, error: { code: 'APPROVAL_NOT_FOUND', message: 'Approval is no longer pending' } });
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      events.publish('codex.approval.responded', { approvalId: input.approvalId, decision: input.decision, requestId: request.requestId });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: { decision: input.decision } };
     }
     if (definition.id === 'codex.thread.start' || definition.id === 'codex.turn.start') {
       const startedAt = performance.now();

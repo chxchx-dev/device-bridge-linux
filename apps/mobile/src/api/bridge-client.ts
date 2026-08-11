@@ -42,6 +42,7 @@ export type CodexThreadMetadata = {
   lastEventAt: string;
   createdAt: string;
 };
+export type CodexApprovalMetadata = { approvalId: string; method: string; threadId: string | null; turnId: string | null; itemId: string | null; kind: 'command' | 'file-change' | 'permissions' | 'other'; cwd: string | null; summary: string; reason: string | null; risk: 'R1' | 'R2' | 'R3'; createdAt: string };
 
 type ErrorBody = { error?: { message?: string } };
 
@@ -100,6 +101,14 @@ export class BridgeClient {
 
   startCodexTurn(session: StoredSession, threadId: string, prompt: string, challengeId: string): Promise<unknown> {
     return this.request('/v1/actions/codex.turn.start', session, { method: 'POST', body: JSON.stringify({ input: { threadId, prompt }, confirmation: { challengeId } }) });
+  }
+
+  getCodexApprovals(session: StoredSession): Promise<{ result: CodexApprovalMetadata[] }> {
+    return this.request('/v1/actions/codex.approvals.list', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
+  }
+
+  respondCodexApproval(session: StoredSession, approvalId: string, decision: 'approve' | 'deny', challengeId: string): Promise<unknown> {
+    return this.request('/v1/actions/codex.approval.respond', session, { method: 'POST', body: JSON.stringify({ input: { approvalId, decision }, confirmation: { challengeId } }) });
   }
 
   switchMode(session: StoredSession, target: Mode, challengeId: string): Promise<{ result: ModeStatus }> {

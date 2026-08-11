@@ -110,7 +110,7 @@ export class CodexAppServer {
     }
     if (message.method && message.id !== undefined) {
       const approval = message.method.includes('requestApproval');
-      if (approval && this.options.onApproval) void this.options.onApproval({ method: message.method, params: message.params, requestId: message.id }).then((result) => this.write({ id: message.id, result })).catch(() => this.write({ id: message.id, error: { code: -32000, message: 'Approval was denied' } }));
+      if (approval && this.options.onApproval) void this.options.onApproval({ method: message.method, params: message.params, requestId: message.id }).then((decision) => this.write({ id: message.id, result: this.approvalResponse(message.method!, decision) })).catch(() => this.write({ id: message.id, error: { code: -32000, message: 'Approval was denied' } }));
       else if (this.options.onEvent) this.options.onEvent({ method: message.method, params: message.params });
       return;
     }
@@ -120,5 +120,11 @@ export class CodexAppServer {
   private failPending(error: Error): void {
     for (const pending of this.pending.values()) pending.reject(error);
     this.pending.clear();
+  }
+
+  private approvalResponse(method: string, decision: unknown): unknown {
+    const approved = decision === 'approve';
+    if (method.includes('permissions')) throw new Error('Permission approvals are not enabled by DeviceBridge');
+    return { decision: approved ? 'accept' : 'decline' };
   }
 }
