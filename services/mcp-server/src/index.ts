@@ -3,6 +3,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { mkdirSync, appendFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { z } from 'zod';
 import { actionRegistry } from '@devicebridge/command-registry';
 import { controlSunshine, readIntegrationStatus } from '@devicebridge/bridge-api/integrations';
@@ -11,6 +13,7 @@ import { ModeOrchestrator } from '@devicebridge/bridge-api/modes';
 import { readDeviceStatus } from '@devicebridge/bridge-api/system';
 
 const capabilities = new Set((process.env.DEVICEBRIDGE_MCP_CAPABILITIES ?? 'system:read,android:read,gaming:read,mode:read,codex:read').split(',').map((value) => value.trim()).filter(Boolean));
+const execFileAsync = promisify(execFile);
 const requireCapability = (capability: string): void => { if (!capabilities.has(capability)) throw new Error('MCP capability denied'); };
 const requireConfirmedWrite = (confirmed: boolean): void => { requireCapability('mode:control'); if (!confirmed) throw new Error('Explicit confirmation is required for mode changes'); };
 const auditPath = process.env.DEVICEBRIDGE_MCP_AUDIT_LOG ?? '.local/state/devicebridge/mcp-audit.jsonl';
@@ -66,6 +69,18 @@ server.registerTool('run_safe_action', {
   }
 });
 
+const preflightOutput = { checks: z.object({ fedoraReachable: z.boolean(), adbConnected: z.boolean(), sunshineAvailable: z.boolean(), sunshineActive: z.boolean(), webConsoleAvailable: z.boolean() }), ready: z.boolean() };
+server.registerTool('preflight_health', {
+  title: 'Run DeviceBridge pre-flight', description: 'Read Fedora and integration health before a mode or sleep automation. Read-only; does not change services.', inputSchema: {}, outputSchema: preflightOutput, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+}, async () => {
+  requireCapability('system:read');
+  const [device, integration] = await Promise.all([readDeviceStatus(), readIntegrationStatus()]);
+  const checks = { fedoraReachable: Boolean(device.platform), adbConnected: integration.adb.connected, sunshineAvailable: integration.sunshine.available, sunshineActive: integration.sunshine.active, webConsoleAvailable: integration.sunshine.available };
+  const ready = checks.fedoraReachable && checks.sunshineAvailable;
+  audit('preflight_health', 'accepted', 'system:read');
+  return { structuredContent: { checks, ready }, content: [{ type: 'text' as const, text: ready ? 'Pre-flight passed.' : 'Pre-flight requires attention.' }] };
+});
+
 const modeInput = { confirmed: z.boolean().describe('Must be true after the user explicitly confirms the mode change.') };
 const modeOutput = { status: z.object({ mode: z.enum(['dev', 'game']).nullable(), transitioning: z.boolean() }), preflight: z.object({ adbConnected: z.boolean(), sunshineActive: z.boolean(), webConsoleAvailable: z.boolean() }) };
 const runModeAutomation = async (target: 'dev' | 'game', confirmed: boolean) => {
@@ -90,5 +105,16 @@ server.registerTool('work_mode', {
 server.registerTool('game_mode', {
   title: 'Activate Game Mode', description: 'Run the approved Game Mode automation: verify integrations, stop the local development service and start Sunshine. Requires explicit confirmation.', inputSchema: modeInput, outputSchema: modeOutput, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
 }, async ({ confirmed }) => runModeAutomation('game', confirmed));
+
+server.registerTool('sleep_mode', {
+  title: 'Suspend Fedora', description: 'Run pre-flight checks and suspend Fedora. This is an R2 state-changing action; it requires system:suspend and explicit confirmation. The device will become unreachable while suspended.', inputSchema: modeInput, outputSchema: { suspended: z.boolean(), preflight: z.object({ fedoraReachable: z.boolean(), sunshineActive: z.boolean() }) }, annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false }
+}, async ({ confirmed }) => {
+  requireCapability('system:suspend');
+  if (!confirmed) throw new Error('Explicit confirmation is required for sleep mode');
+  const preflight = await readIntegrationStatus();
+  audit('sleep_mode', 'accepted', 'system:suspend');
+  await execFileAsync('/usr/bin/systemctl', ['suspend'], { timeout: 15_000, shell: false, maxBuffer: 16 * 1024 });
+  return { structuredContent: { suspended: true, preflight: { fedoraReachable: true, sunshineActive: preflight.sunshine.active } }, content: [{ type: 'text' as const, text: 'Fedora suspension requested.' }] };
+});
 
 await server.connect(new StdioServerTransport());

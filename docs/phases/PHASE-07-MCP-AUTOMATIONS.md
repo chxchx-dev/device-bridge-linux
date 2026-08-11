@@ -21,8 +21,8 @@ Make DeviceBridge a first-class typed tool provider.
 ## Automations
 - [x] Work mode (pre-flight + confirmed orchestration).
 - [x] Game mode (pre-flight + confirmed orchestration).
-- [ ] Sleep mode.
-- [ ] Pre-flight health checks.
+- [x] Sleep mode (R2, disabled by default; fixed `systemctl suspend` adapter).
+- [x] Pre-flight health checks.
 
 ## Exit criteria
 Codex can use DeviceBridge capabilities without shell access.
