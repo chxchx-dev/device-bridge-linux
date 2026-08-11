@@ -15,6 +15,9 @@ Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
 PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/devicebridge/.local/state
 
 [Install]
 WantedBy=default.target

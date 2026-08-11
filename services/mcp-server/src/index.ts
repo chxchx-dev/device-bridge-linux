@@ -1,13 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { mkdirSync, appendFileSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import { actionRegistry } from '@devicebridge/command-registry';
 import { DeviceBridgeApplication } from '@devicebridge/bridge-api/application';
+import { appendAuditRecord } from './audit.js';
 
 const capabilities = new Set((process.env.DEVICEBRIDGE_MCP_CAPABILITIES ?? 'system:read,android:read,gaming:read,mode:read,codex:read').split(',').map((value) => value.trim()).filter(Boolean));
 const execFileAsync = promisify(execFile);
@@ -15,8 +14,7 @@ const requireCapability = (capability: string): void => { if (!capabilities.has(
 const requireConfirmedWrite = (confirmed: boolean): void => { requireCapability('mode:control'); if (!confirmed) throw new Error('Explicit confirmation is required for mode changes'); };
 const auditPath = process.env.DEVICEBRIDGE_MCP_AUDIT_LOG ?? '.local/state/devicebridge/mcp-audit.jsonl';
 const audit = (actionId: string, outcome: 'accepted' | 'rejected' | 'failed', capability: string): void => {
-  mkdirSync(dirname(auditPath), { recursive: true, mode: 0o700 });
-  appendFileSync(auditPath, `${JSON.stringify({ timestamp: new Date().toISOString(), requestId: randomUUID(), actionId, outcome, capability })}\n`, { mode: 0o600 });
+  appendAuditRecord(auditPath, { timestamp: new Date().toISOString(), requestId: randomUUID(), actionId, outcome, capability });
 };
 const projects = (process.env.DEVICEBRIDGE_CODEX_PROJECTS ?? '').split(',').flatMap((entry) => {
   const separator = entry.indexOf('=');

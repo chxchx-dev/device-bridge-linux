@@ -10,10 +10,10 @@ Turn the project into a maintainable daily-use system.
 - [x] Rate limiting (pairing, authentication failures and authenticated action requests; bounded in-memory windows).
 - [x] Replay protection (one-time, short-lived confirmation challenges; replay test passes).
 - [x] Device revocation UX: Android can forget its local session and rotate its own server token with biometric step-up and a one-time R2 challenge.
-- [ ] Audit log rotation.
+- [x] Audit log rotation (MCP JSONL audit is capped at 1 MiB with one restrictive-permission rotated file).
 - [ ] SELinux compatibility review.
 - [ ] firewalld verification.
-- [ ] systemd hardening directives.
+- [x] systemd hardening directives (no new privileges, private temp, read-only system/home with narrow write exceptions; services verified healthy).
 - [ ] backup/recovery test.
 - [ ] lost-phone drill.
 - [ ] reboot/reconnect test.
