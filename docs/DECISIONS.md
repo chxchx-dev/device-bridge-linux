@@ -76,6 +76,11 @@ audited; no arbitrary destination or packet parameters may come from a remote
 request.
 
 Until such a relay is selected and verified, remote wake remains unavailable.
+For the current Wi-Fi-only hardware, a LAN relay alone is insufficient because
+the laptop does not advertise a wake mechanism. A relay becomes relevant only
+if the target hardware is replaced or connected through a WOL-capable wired
+interface; smart plugs and simulated power-button devices are outside the
+current security boundary.
 
 ## ADR-011 — Secure unlock remains disabled
 **Status:** Accepted for Phase 08
