@@ -13,6 +13,7 @@ import { ChallengeStore } from './challenges.js';
 import { createSystemSessionAdapter, type SessionAdapter } from './system-actions.js';
 import { controlSunshine, startScrcpy, type IntegrationStatus, type ScrcpyStartResult, type SunshineControlResult, type SunshineOperation } from './integrations.js';
 import type { ModeOrchestrator } from './modes.js';
+import { RateLimiter } from './rate-limit.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -125,12 +126,14 @@ export interface AppOptions {
   codexApprovalBroker?: CodexApprovalBroker;
   modeOrchestrator?: ModeOrchestrator;
   application?: DeviceBridgeApplication;
+  rateLimiter?: RateLimiter;
 }
 
 export function createApp(options: AppOptions = {}): FastifyInstance {
   const defaultCapabilities = options.defaultCapabilities ?? (process.env.DEVICEBRIDGE_DEFAULT_CAPABILITIES?.split(',').map((capability) => capability.trim()).filter(Boolean) ?? ['system:read', 'mode:read', 'android:read', 'gaming:read']);
   const store = options.store ?? new PairingStore(defaultCapabilities, process.env.DEVICEBRIDGE_STATE_DB ?? ':memory:');
   const auditSink = options.auditSink ?? new InMemoryAuditSink();
+  const rateLimiter = options.rateLimiter ?? new RateLimiter();
   const challenges = options.challenges ?? new ChallengeStore();
   const sessionAdapter = options.sessionAdapter ?? createSystemSessionAdapter();
   const enableSystemLock = options.enableSystemLock ?? process.env.DEVICEBRIDGE_ENABLE_SYSTEM_LOCK === 'true';
@@ -200,12 +203,29 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   app.addHook('onRequest', async (request, reply) => {
     request.requestId = randomUUID();
     reply.header('X-Request-Id', request.requestId);
-    if (request.url.split('?')[0] === '/health' || request.url.split('?')[0] === '/pair' || request.url.split('?')[0] === '/v1/pairing/complete') return;
+    const path = request.url.split('?')[0] ?? '';
+    const requestKey = request.ip || request.socket.remoteAddress || 'unknown';
+    if (path === '/v1/pairing/complete' && !rateLimiter.allowPairing(requestKey)) {
+      audit(request, auditSink, 'rejected', 'rate_limited');
+      reply.header('Retry-After', '60');
+      return reply.code(429).send({ requestId: request.requestId, error: { code: 'RATE_LIMITED', message: 'Too many pairing attempts; try again later' } });
+    }
+    if (path === '/health' || path === '/pair' || path === '/v1/pairing/complete') return;
 
     request.authContext = authenticate(request, store);
     if (!request.authContext) {
+      if (!rateLimiter.allowAuthFailure(requestKey)) {
+        audit(request, auditSink, 'rejected', 'rate_limited');
+        reply.header('Retry-After', '60');
+        return reply.code(429).send({ requestId: request.requestId, error: { code: 'RATE_LIMITED', message: 'Too many authentication attempts; try again later' } });
+      }
       audit(request, auditSink, 'rejected', 'unauthorized');
       return reply.code(401).send({ requestId: request.requestId, error: { code: 'UNAUTHORIZED', message: 'Valid paired DeviceBridge credential required' } });
+    }
+    if (request.method === 'POST' && path.startsWith('/v1/actions/') && !rateLimiter.allowAction(request.authContext.deviceId)) {
+      audit(request, auditSink, 'rejected', 'rate_limited');
+      reply.header('Retry-After', '60');
+      return reply.code(429).send({ requestId: request.requestId, error: { code: 'RATE_LIMITED', message: 'Too many action requests; try again later' } });
     }
   });
 

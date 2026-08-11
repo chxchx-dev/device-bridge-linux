@@ -8,6 +8,7 @@ import { PairingStore, pairingCodeForToken } from './pairing.js';
 import { createSystemSessionAdapter } from './system-actions.js';
 import { ModeOrchestrator } from './modes.js';
 import { CodexThreadStore } from '@devicebridge/codex-gateway';
+import { RateLimiter } from './rate-limit.js';
 
 const deviceId = 'android-a17-test';
 const pairingToken = 'pairing-token-for-tests-1234567890';
@@ -113,6 +114,30 @@ test('pairing token expires', () => {
   const store = new PairingStore();
   store.issuePairingToken(pairingToken, 0);
   assert.equal(store.completePairing(deviceId, pairingToken), undefined);
+});
+
+test('pairing attempts are rate limited per source', async () => {
+  const app = createApp({ pairingToken, rateLimiter: new RateLimiter({ pairingMax: 1 }) });
+  const first = await app.inject({ method: 'POST', url: '/v1/pairing/complete', payload: { deviceId, pairingToken: 'invalid-pairing-token-1234567890' } });
+  const second = await app.inject({ method: 'POST', url: '/v1/pairing/complete', payload: { deviceId: 'android-a17-second', pairingToken: 'invalid-pairing-token-1234567890' } });
+  assert.equal(first.statusCode, 401);
+  assert.equal(second.statusCode, 429);
+  assert.equal(second.json().error.code, 'RATE_LIMITED');
+  await app.close();
+});
+
+test('authenticated action requests are rate limited without executing the action', async () => {
+  const token = 'device-token-for-rate-limit-test-1234567890';
+  const store = new PairingStore(['system:read']);
+  store.seedDevice(deviceId, token);
+  const app = createApp({ store, rateLimiter: new RateLimiter({ actionMax: 1 }) });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+  const first = await app.inject({ method: 'POST', url: '/v1/actions/system.status', headers, payload: {} });
+  const second = await app.inject({ method: 'POST', url: '/v1/actions/system.status', headers, payload: {} });
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 429);
+  assert.equal(second.json().error.code, 'RATE_LIMITED');
+  await app.close();
 });
 
 test('action catalog and status require the declared read capability', async () => {
