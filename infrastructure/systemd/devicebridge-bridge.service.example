@@ -8,7 +8,7 @@ Type=simple
 WorkingDirectory=%h/devicebridge
 EnvironmentFile=%h/devicebridge/.env
 Environment=DEVICEBRIDGE_ENABLE_MODES=true
-ExecStart=/usr/bin/pnpm --filter @devicebridge/bridge-api exec tsx src/index.ts
+ExecStart=/usr/bin/node %h/devicebridge/services/bridge-api/dist/index.js
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
