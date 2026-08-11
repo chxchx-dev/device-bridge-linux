@@ -1,7 +1,7 @@
 import { BRIDGE_BASE_URL } from '../config';
 import type { StoredSession } from '../security/credential-store';
 
-export type BridgeEvent = { type?: string; payload?: unknown };
+export type BridgeEvent = { type?: string; payload?: { actionId?: string; requestId?: string; [key: string]: unknown } };
 
 export function connectBridgeEvents(session: StoredSession, onEvent: (event: BridgeEvent) => void): () => void {
   const socketUrl = `${BRIDGE_BASE_URL.replace(/^https:/, 'wss:')}/v1/ws`;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DEVICE_ID } from './src/config';
 import { BridgeClient, type Action, type CodexGatewayStatus, type CodexThreadMetadata, type DeviceStatus, type IntegrationStatus, type Mode, type ModeStatus } from './src/api/bridge-client';
@@ -16,14 +16,20 @@ export default function App() {
   const [modeStatus, setModeStatus] = useState<ModeStatus>();
   const [codexStatus, setCodexStatus] = useState<CodexGatewayStatus>();
   const [codexThreads, setCodexThreads] = useState<CodexThreadMetadata[]>([]);
+  const [selectedThread, setSelectedThread] = useState<string>();
+  const [projectId, setProjectId] = useState('devicebridge');
+  const [threadTitle, setThreadTitle] = useState('');
+  const [prompt, setPrompt] = useState('');
   const [pairingToken, setPairingToken] = useState('');
   const [showPairingToken, setShowPairingToken] = useState(false);
   const [message, setMessage] = useState('Checking secure session…');
   const [busy, setBusy] = useState(false);
 
-  const refresh = async (activeSession: StoredSession) => {
+  const refresh = useCallback(async (activeSession: StoredSession) => {
     const [device, catalog] = await Promise.all([client.getDevice(activeSession), client.getActions(activeSession)]);
-    setStatus(device.device); setActions(catalog.actions); setMessage('Connected to Fedora.');
+    setStatus(device.device);
+    setActions(catalog.actions);
+    setMessage('Connected to Fedora.');
     if (catalog.actions.some((action) => action.id === 'mode.status')) {
       try { setModeStatus((await client.getModeStatus(activeSession)).result); } catch { setModeStatus(undefined); }
     }
@@ -31,21 +37,29 @@ export default function App() {
       try { setCodexStatus((await client.getCodexStatus(activeSession)).result); } catch { setCodexStatus(undefined); }
     } else setCodexStatus(undefined);
     if (catalog.actions.some((action) => action.id === 'codex.threads.list' && action.enabledByDefault)) {
-      try { setCodexThreads((await client.getCodexThreads(activeSession)).result); } catch { setCodexThreads([]); }
+      try {
+        const threads = (await client.getCodexThreads(activeSession)).result;
+        setCodexThreads(threads);
+        if (!selectedThread && threads[0]) setSelectedThread(threads[0].threadId);
+      } catch { setCodexThreads([]); }
     } else setCodexThreads([]);
-  };
+  }, [selectedThread]);
 
   useEffect(() => {
     void loadSession().then((stored) => {
       if (!stored) { setMessage('Pair this phone with Fedora.'); return; }
-      setSession(stored); void refresh(stored).catch(async () => { await clearSession(); setSession(undefined); setMessage('Session expired. Pair again.'); });
+      setSession(stored);
+      void refresh(stored).catch(async () => { await clearSession(); setSession(undefined); setMessage('Session expired. Pair again.'); });
     }).catch(() => setMessage('Secure storage is unavailable.'));
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     if (!session) return;
-    return connectBridgeEvents(session, (event) => { if (event.type === 'action.completed') void refresh(session); });
-  }, [session]);
+    return connectBridgeEvents(session, (event) => {
+      if (event.type === 'action.completed' || event.type === 'codex.task.updated' || event.type === 'codex.event') void refresh(session);
+      if (event.type === 'codex.approval.requested') setMessage('Codex solicita una aprobación. Revísala antes de continuar.');
+    });
+  }, [refresh, session]);
 
   const pair = async () => {
     setBusy(true); setMessage('Pairing…');
@@ -54,44 +68,66 @@ export default function App() {
     finally { setBusy(false); }
   };
 
-  const forget = async () => { await clearSession(); setSession(undefined); setStatus(undefined); setActions([]); setModeStatus(undefined); setCodexStatus(undefined); setCodexThreads([]); setMessage('Session removed from secure storage.'); };
+  const forget = async () => { await clearSession(); setSession(undefined); setStatus(undefined); setActions([]); setModeStatus(undefined); setCodexStatus(undefined); setCodexThreads([]); setSelectedThread(undefined); setMessage('Session removed from secure storage.'); };
+  const confirmAction = (action: Action): Promise<boolean> => new Promise((resolve) => Alert.alert('Confirm action', action.description, [{ text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Confirm', style: 'destructive', onPress: () => resolve(true) }]));
   const runStatus = async () => { if (!session) return; setBusy(true); try { await refresh(session); } catch (error) { setMessage(error instanceof Error ? error.message : 'Status failed'); } finally { setBusy(false); } };
-  const runIntegrationStatus = async () => { if (!session) return; setBusy(true); try { const response = await client.getIntegrationStatus(session); setIntegrationStatus(response.result); setMessage('Integration status updated.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Integration status failed'); } finally { setBusy(false); } };
+  const runIntegrationStatus = async () => { if (!session) return; setBusy(true); try { setIntegrationStatus((await client.getIntegrationStatus(session)).result); setMessage('Integration status updated.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Integration status failed'); } finally { setBusy(false); } };
+
   const switchMode = async (target: Mode) => {
     if (!session) return;
     const action = actions.find((candidate) => candidate.id === 'mode.switch');
     if (!action?.enabledByDefault) { setMessage('Modes are disabled on Fedora.'); return; }
-    setBusy(true); setMessage(`Preparing ${target} mode…`);
-    try {
-      if (!(await confirmAction(action))) { setMessage('Mode change cancelled.'); return; }
-      const challenge = await client.getChallenge(session, action.id);
-      setModeStatus((await client.switchMode(session, target, challenge.challengeId)).result);
-      setMessage(`${target === 'dev' ? 'Dev' : 'Game'} Mode active.`);
-      await refresh(session);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Mode change failed'); }
+    setBusy(true);
+    try { if (!(await confirmAction(action))) return; const challenge = await client.getChallenge(session, action.id); setModeStatus((await client.switchMode(session, target, challenge.challengeId)).result); setMessage(`${target === 'dev' ? 'Dev' : 'Game'} Mode active.`); await refresh(session); }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Mode change failed'); }
     finally { setBusy(false); }
   };
-  const confirmAction = (action: Action): Promise<boolean> => new Promise((resolve) => Alert.alert('Confirm action', action.description, [{ text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Confirm', style: 'destructive', onPress: () => resolve(true) }]));
+
+  const startThread = async () => {
+    if (!session) return;
+    const action = actions.find((candidate) => candidate.id === 'codex.thread.start');
+    if (!action?.enabledByDefault) { setMessage('Codex task control is disabled.'); return; }
+    setBusy(true);
+    try { if (!(await confirmAction(action))) return; const challenge = await client.getChallenge(session, action.id); const thread = (await client.startCodexThread(session, projectId.trim(), threadTitle.trim() || null, challenge.challengeId)).result; setSelectedThread(thread.threadId); setThreadTitle(''); setMessage('Codex thread started.'); await refresh(session); }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Codex thread failed'); }
+    finally { setBusy(false); }
+  };
+
+  const startTurn = async () => {
+    if (!session || !selectedThread || !prompt.trim()) return;
+    const action = actions.find((candidate) => candidate.id === 'codex.turn.start');
+    if (!action?.enabledByDefault) return;
+    setBusy(true);
+    try { if (!(await confirmAction(action))) return; const challenge = await client.getChallenge(session, action.id); await client.startCodexTurn(session, selectedThread, prompt.trim(), challenge.challengeId); setPrompt(''); setMessage('Codex task started.'); await refresh(session); }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Codex task failed'); }
+    finally { setBusy(false); }
+  };
+
   const runAction = async (action: Action) => {
     if (!session) return;
-    setBusy(true); setMessage(`Preparing ${action.id}…`);
-    try {
-      if (action.confirmation === 'step-up') await authenticateStepUp('Confirm sensitive DeviceBridge action');
-      if (action.confirmation !== 'none' && !(await confirmAction(action))) { setMessage('Action cancelled.'); return; }
-      const challenge = action.confirmation !== 'none' ? await client.getChallenge(session, action.id) : undefined;
-      await client.runAction(session, action.id, challenge?.challengeId ?? null);
-      setMessage(`${action.id} completed.`); await refresh(session);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Action failed'); }
+    setBusy(true);
+    try { if (action.confirmation === 'step-up') await authenticateStepUp('Confirm sensitive DeviceBridge action'); if (action.confirmation !== 'none' && !(await confirmAction(action))) return; const challenge = action.confirmation !== 'none' ? await client.getChallenge(session, action.id) : undefined; await client.runAction(session, action.id, challenge?.challengeId ?? null); setMessage(`${action.id} completed.`); await refresh(session); }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Action failed'); }
     finally { setBusy(false); }
   };
+
   const statusAction = useMemo(() => actions.find((action) => action.id === 'system.status'), [actions]);
-  const enabledActions = useMemo(() => actions.filter((action) => !['system.status', 'mode.status', 'mode.switch'].includes(action.id) && action.enabledByDefault), [actions]);
   const modeSwitchAction = useMemo(() => actions.find((action) => action.id === 'mode.switch'), [actions]);
+  const enabledActions = useMemo(() => actions.filter((action) => !['system.status', 'mode.status', 'mode.switch', 'codex.status', 'codex.threads.list', 'codex.thread.start', 'codex.turn.start'].includes(action.id) && action.enabledByDefault), [actions]);
 
   return <View style={styles.container}>
     <StatusBar barStyle="light-content" />
     <Text style={styles.eyebrow}>PRIVATE TAILNET CONTROL</Text><Text style={styles.title}>DeviceBridge</Text>
-    {!session ? <View style={styles.card}><Text style={styles.heading}>Pair Android</Text><Text style={styles.body}>Device ID: {DEVICE_ID}</Text><TextInput value={pairingToken} onChangeText={setPairingToken} placeholder="Token largo o código de 6 dígitos" placeholderTextColor="#7890aa" secureTextEntry={!showPairingToken} autoCapitalize="none" autoCorrect={false} style={styles.input} /><Pressable onPress={() => setShowPairingToken((shown) => !shown)} style={styles.secondary}><Text style={styles.secondaryText}>{showPairingToken ? 'Ocultar token' : 'Mostrar token'}</Text></Pressable><Pressable disabled={busy || pairingToken.trim().length < 6} onPress={() => void pair()} style={styles.button}><Text style={styles.buttonText}>{busy ? 'Pairing…' : 'Pair device'}</Text></Pressable></View> : <View style={styles.card}><Text style={styles.heading}>Fedora status</Text>{status ? <><Text style={styles.body}>Host: {status.hostname}</Text><Text style={styles.body}>Platform: {status.platform}</Text><Text style={styles.body}>Memory: {Math.round((status.totalMemoryBytes - status.freeMemoryBytes) / 1024 / 1024)} / {Math.round(status.totalMemoryBytes / 1024 / 1024)} MB</Text></> : <Text style={styles.body}>Loading…</Text>}<Text style={styles.caption}>{statusAction?.description ?? 'Authenticated status action'}</Text><Pressable disabled={busy} onPress={() => void runStatus()} style={styles.button}><Text style={styles.buttonText}>Refresh status</Text></Pressable>{codexStatus ? <View style={styles.modePanel}><Text style={styles.heading}>Codex Cockpit</Text><Text style={styles.body}>{codexStatus.connected ? 'Connected' : 'Unavailable'} · {codexStatus.mode === 'app-server' ? 'App Server' : codexStatus.mode}</Text><Text style={styles.caption}>CLI: {codexStatus.cliVersion ?? 'unknown'}</Text>{codexThreads.length ? codexThreads.slice(0, 3).map((thread) => <Text key={thread.threadId} style={styles.caption}>{thread.title ?? thread.threadId} · {thread.status} · {thread.projectPath}</Text>) : <Text style={styles.caption}>No active Codex threads.</Text>}</View> : null}{modeSwitchAction ? <View style={styles.modePanel}><Text style={styles.heading}>Control mode</Text><Text style={styles.body}>Current: {modeStatus?.mode ? modeStatus.mode === 'dev' ? 'Dev' : 'Game' : 'Unknown'}</Text><View style={styles.modeRow}><Pressable disabled={busy || !modeSwitchAction.enabledByDefault} onPress={() => void switchMode('dev')} style={styles.modeButton}><Text style={styles.buttonText}>Dev Mode</Text></Pressable><Pressable disabled={busy || !modeSwitchAction.enabledByDefault} onPress={() => void switchMode('game')} style={styles.modeButton}><Text style={styles.buttonText}>Game Mode</Text></Pressable></View>{!modeSwitchAction.enabledByDefault ? <Text style={styles.caption}>Modes disabled on Fedora.</Text> : null}</View> : null}{enabledActions.map((action) => <View key={action.id}>{<Pressable disabled={busy} onPress={() => action.id === 'integrations.status' ? void runIntegrationStatus() : void runAction(action)} style={styles.button}><Text style={styles.buttonText}>{action.description}</Text></Pressable>}{action.id === 'integrations.status' && integrationStatus ? <Text style={styles.caption}>KDE Connect: {integrationStatus.kdeConnect.pairedReachable ? 'paired/reachable' : 'unavailable'} · ADB: {integrationStatus.adb.connected ? `${integrationStatus.adb.deviceCount} connected` : 'disconnected'} · scrcpy: {integrationStatus.scrcpy.available ? integrationStatus.scrcpy.version ?? 'available' : 'unavailable'} · Sunshine: {integrationStatus.sunshine.active ? 'active' : 'inactive'}</Text> : null}</View>)}<Pressable onPress={() => void forget()} style={styles.secondary}><Text style={styles.secondaryText}>Forget secure session</Text></Pressable></View>}
+    {!session ? <View style={styles.card}><Text style={styles.heading}>Pair Android</Text><Text style={styles.body}>Device ID: {DEVICE_ID}</Text><TextInput value={pairingToken} onChangeText={setPairingToken} placeholder="Token largo o código de 6 dígitos" placeholderTextColor="#7890aa" secureTextEntry={!showPairingToken} autoCapitalize="none" autoCorrect={false} style={styles.input} /><Pressable onPress={() => setShowPairingToken((shown) => !shown)} style={styles.secondary}><Text style={styles.secondaryText}>{showPairingToken ? 'Ocultar token' : 'Mostrar token'}</Text></Pressable><Pressable disabled={busy || pairingToken.trim().length < 6} onPress={() => void pair()} style={styles.button}><Text style={styles.buttonText}>{busy ? 'Pairing…' : 'Pair device'}</Text></Pressable></View> : <View style={styles.card}>
+      <Text style={styles.heading}>Fedora status</Text>{status ? <><Text style={styles.body}>Host: {status.hostname}</Text><Text style={styles.body}>Platform: {status.platform}</Text><Text style={styles.body}>Memory: {Math.round((status.totalMemoryBytes - status.freeMemoryBytes) / 1024 / 1024)} / {Math.round(status.totalMemoryBytes / 1024 / 1024)} MB</Text></> : <Text style={styles.body}>Loading…</Text>}<Text style={styles.caption}>{statusAction?.description ?? 'Authenticated status action'}</Text><Pressable disabled={busy} onPress={() => void runStatus()} style={styles.button}><Text style={styles.buttonText}>Refresh status</Text></Pressable>
+      {codexStatus ? <View style={styles.modePanel}><Text style={styles.heading}>Codex Cockpit</Text><Text style={styles.body}>{codexStatus.connected ? 'Connected' : 'Unavailable'} · {codexStatus.mode === 'app-server' ? 'App Server' : codexStatus.mode}</Text><Text style={styles.caption}>CLI: {codexStatus.cliVersion ?? 'unknown'}</Text>{codexThreads.length ? codexThreads.slice(0, 3).map((thread) => <Pressable key={thread.threadId} onPress={() => setSelectedThread(thread.threadId)}><Text style={styles.caption}>{thread.title ?? thread.threadId} · {thread.status} · {thread.projectPath}</Text></Pressable>) : <Text style={styles.caption}>No active Codex threads.</Text>}
+        {actions.some((action) => action.id === 'codex.thread.start' && action.enabledByDefault) ? <><TextInput value={projectId} onChangeText={setProjectId} placeholder="Project ID registrado" placeholderTextColor="#7890aa" autoCapitalize="none" style={styles.input} /><TextInput value={threadTitle} onChangeText={setThreadTitle} placeholder="Título opcional" placeholderTextColor="#7890aa" style={styles.input} /><Pressable disabled={busy} onPress={() => void startThread()} style={styles.button}><Text style={styles.buttonText}>Start Codex thread</Text></Pressable></> : null}
+        {selectedThread && actions.some((action) => action.id === 'codex.turn.start' && action.enabledByDefault) ? <><Text style={styles.caption}>Thread: {selectedThread}</Text><TextInput value={prompt} onChangeText={setPrompt} placeholder="Describe la tarea para Codex" placeholderTextColor="#7890aa" multiline style={styles.input} /><Pressable disabled={busy || !prompt.trim()} onPress={() => void startTurn()} style={styles.button}><Text style={styles.buttonText}>Start Codex task</Text></Pressable></> : null}
+      </View> : null}
+      {modeSwitchAction ? <View style={styles.modePanel}><Text style={styles.heading}>Control mode</Text><Text style={styles.body}>Current: {modeStatus?.mode ? modeStatus.mode === 'dev' ? 'Dev' : 'Game' : 'Unknown'}</Text><View style={styles.modeRow}><Pressable disabled={busy || !modeSwitchAction.enabledByDefault} onPress={() => void switchMode('dev')} style={styles.modeButton}><Text style={styles.buttonText}>Dev Mode</Text></Pressable><Pressable disabled={busy || !modeSwitchAction.enabledByDefault} onPress={() => void switchMode('game')} style={styles.modeButton}><Text style={styles.buttonText}>Game Mode</Text></Pressable></View>{!modeSwitchAction.enabledByDefault ? <Text style={styles.caption}>Modes disabled on Fedora.</Text> : null}</View> : null}
+      {enabledActions.map((action) => <View key={action.id}><Pressable disabled={busy} onPress={() => action.id === 'integrations.status' ? void runIntegrationStatus() : void runAction(action)} style={styles.button}><Text style={styles.buttonText}>{action.description}</Text></Pressable>{action.id === 'integrations.status' && integrationStatus ? <Text style={styles.caption}>KDE Connect: {integrationStatus.kdeConnect.pairedReachable ? 'paired/reachable' : 'unavailable'} · ADB: {integrationStatus.adb.connected ? `${integrationStatus.adb.deviceCount} connected` : 'disconnected'} · scrcpy: {integrationStatus.scrcpy.available ? integrationStatus.scrcpy.version ?? 'available' : 'unavailable'} · Sunshine: {integrationStatus.sunshine.active ? 'active' : 'inactive'}</Text> : null}</View>)}
+      <Pressable onPress={() => void forget()} style={styles.secondary}><Text style={styles.secondaryText}>Forget secure session</Text></Pressable>
+    </View>}
     <Text style={styles.message}>{message}</Text>
   </View>;
 }

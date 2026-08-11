@@ -94,6 +94,14 @@ export class BridgeClient {
     return this.request('/v1/actions/codex.threads.list', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
   }
 
+  startCodexThread(session: StoredSession, projectId: string, title: string | null, challengeId: string): Promise<{ result: CodexThreadMetadata }> {
+    return this.request('/v1/actions/codex.thread.start', session, { method: 'POST', body: JSON.stringify({ input: { projectId, title }, confirmation: { challengeId } }) });
+  }
+
+  startCodexTurn(session: StoredSession, threadId: string, prompt: string, challengeId: string): Promise<unknown> {
+    return this.request('/v1/actions/codex.turn.start', session, { method: 'POST', body: JSON.stringify({ input: { threadId, prompt }, confirmation: { challengeId } }) });
+  }
+
   switchMode(session: StoredSession, target: Mode, challengeId: string): Promise<{ result: ModeStatus }> {
     return this.request('/v1/actions/mode.switch', session, {
       method: 'POST',
