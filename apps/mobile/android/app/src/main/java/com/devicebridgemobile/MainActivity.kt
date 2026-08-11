@@ -2,6 +2,7 @@ package com.devicebridgemobile
 
 import android.os.Build
 import android.os.Bundle
+import android.graphics.Color
 import android.view.View
 import android.view.WindowInsets
 import com.facebook.react.ReactActivity
@@ -21,10 +22,18 @@ class MainActivity : ReactActivity() {
     hideSystemBars()
   }
 
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    if (hasFocus) hideSystemBars()
+  }
+
   private fun hideSystemBars() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      window.setDecorFitsSystemWindows(false)
+      window.statusBarColor = Color.TRANSPARENT
+      window.navigationBarColor = Color.TRANSPARENT
       window.insetsController?.let { controller ->
-        controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+        controller.hide(WindowInsets.Type.systemBars())
         controller.systemBarsBehavior =
           android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
       }
