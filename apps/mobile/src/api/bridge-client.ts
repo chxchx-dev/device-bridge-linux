@@ -20,6 +20,8 @@ export type Action = {
 };
 
 export type ActionChallenge = { challengeId: string; actionId: string; expiresAt: string };
+export type Mode = 'dev' | 'game';
+export type ModeStatus = { mode: Mode | null; transitioning: boolean };
 export type IntegrationStatus = {
   kdeConnect: { available: boolean; pairedReachable: boolean; deviceCount: number };
   adb: { available: boolean; connected: boolean; deviceCount: number };
@@ -64,6 +66,17 @@ export class BridgeClient {
 
   getIntegrationStatus(session: StoredSession): Promise<{ result: IntegrationStatus }> {
     return this.request('/v1/actions/integrations.status', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
+  }
+
+  getModeStatus(session: StoredSession): Promise<{ result: ModeStatus }> {
+    return this.request('/v1/actions/mode.status', session, { method: 'POST', body: JSON.stringify({ input: {} }) });
+  }
+
+  switchMode(session: StoredSession, target: Mode, challengeId: string): Promise<{ result: ModeStatus }> {
+    return this.request('/v1/actions/mode.switch', session, {
+      method: 'POST',
+      body: JSON.stringify({ input: { target }, confirmation: { challengeId } }),
+    });
   }
 
   getChallenge(session: StoredSession, actionId: string): Promise<ActionChallenge> {
