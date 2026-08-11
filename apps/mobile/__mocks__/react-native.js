@@ -8,5 +8,6 @@ module.exports = {
   Text: element('Text'),
   TextInput: element('TextInput'),
   View: element('View'),
+  ScrollView: element('ScrollView'),
   StyleSheet: { create: (styles) => styles },
 };

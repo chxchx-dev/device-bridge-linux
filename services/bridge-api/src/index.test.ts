@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createApp } from './index.js';
 import { PairingStore, pairingCodeForToken } from './pairing.js';
 import { createSystemSessionAdapter } from './system-actions.js';
@@ -91,6 +94,19 @@ test('revoked device token is denied', () => {
   assert.equal(store.revoke(deviceId), true);
   assert.equal(store.authenticate(deviceId, token), false);
   assert.equal(store.isRevoked(deviceId), true);
+});
+
+test('paired device hashes survive a Bridge restart through SQLite', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'devicebridge-pairing-'));
+  const filename = join(directory, 'state.sqlite');
+  const token = 'device-token-for-persistence-test-123456';
+  const first = new PairingStore(['system:read'], filename);
+  first.seedDevice(deviceId, token);
+  assert.equal(first.authenticate(deviceId, token), true);
+  const restarted = new PairingStore(['system:read'], filename);
+  assert.equal(restarted.authenticate(deviceId, token), true);
+  assert.deepEqual(restarted.capabilities(deviceId), ['system:read']);
+  rmSync(directory, { recursive: true, force: true });
 });
 
 test('pairing token expires', () => {

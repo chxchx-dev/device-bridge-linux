@@ -114,7 +114,7 @@ export interface AppOptions {
 
 export function createApp(options: AppOptions = {}): FastifyInstance {
   const defaultCapabilities = options.defaultCapabilities ?? (process.env.DEVICEBRIDGE_DEFAULT_CAPABILITIES?.split(',').map((capability) => capability.trim()).filter(Boolean) ?? ['system:read', 'mode:read', 'android:read', 'gaming:read']);
-  const store = options.store ?? new PairingStore(defaultCapabilities);
+  const store = options.store ?? new PairingStore(defaultCapabilities, process.env.DEVICEBRIDGE_STATE_DB ?? ':memory:');
   const auditSink = options.auditSink ?? new InMemoryAuditSink();
   const challenges = options.challenges ?? new ChallengeStore();
   const sessionAdapter = options.sessionAdapter ?? createSystemSessionAdapter();
