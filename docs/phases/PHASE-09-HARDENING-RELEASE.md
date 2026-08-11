@@ -4,9 +4,9 @@
 Turn the project into a maintainable daily-use system.
 
 ## Tasks
-- [ ] Dependency audit.
-- [ ] Threat model review.
-- [ ] Secret scan.
+- [ ] Dependency audit (audit found two high-severity `image-size` advisories in the React Native/Metro toolchain; no patched version is currently available).
+- [x] Threat model review (architecture, security policy and Phase 08 decisions reviewed).
+- [x] Secret scan (no high-confidence tracked secrets; `.env.example` contains placeholders only).
 - [ ] Rate limiting.
 - [ ] Replay protection.
 - [ ] Device revocation UX.
