@@ -14,6 +14,9 @@ import { readDeviceStatus } from '@devicebridge/bridge-api/system';
 
 const capabilities = new Set((process.env.DEVICEBRIDGE_MCP_CAPABILITIES ?? 'system:read,android:read,gaming:read,mode:read,codex:read').split(',').map((value) => value.trim()).filter(Boolean));
 const execFileAsync = promisify(execFile);
+const webConsoleAvailable = async (): Promise<boolean> => {
+  try { const result = await execFileAsync('/usr/bin/systemctl', ['--user', 'is-active', 'devicebridge-web-console.service'], { timeout: 10_000, shell: false, maxBuffer: 16 * 1024 }); return result.stdout.trim() === 'active'; } catch { return false; }
+};
 const requireCapability = (capability: string): void => { if (!capabilities.has(capability)) throw new Error('MCP capability denied'); };
 const requireConfirmedWrite = (confirmed: boolean): void => { requireCapability('mode:control'); if (!confirmed) throw new Error('Explicit confirmation is required for mode changes'); };
 const auditPath = process.env.DEVICEBRIDGE_MCP_AUDIT_LOG ?? '.local/state/devicebridge/mcp-audit.jsonl';
@@ -74,8 +77,8 @@ server.registerTool('preflight_health', {
   title: 'Run DeviceBridge pre-flight', description: 'Read Fedora and integration health before a mode or sleep automation. Read-only; does not change services.', inputSchema: {}, outputSchema: preflightOutput, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
 }, async () => {
   requireCapability('system:read');
-  const [device, integration] = await Promise.all([readDeviceStatus(), readIntegrationStatus()]);
-  const checks = { fedoraReachable: Boolean(device.platform), adbConnected: integration.adb.connected, sunshineAvailable: integration.sunshine.available, sunshineActive: integration.sunshine.active, webConsoleAvailable: integration.sunshine.available };
+  const [device, integration, webConsole] = await Promise.all([readDeviceStatus(), readIntegrationStatus(), webConsoleAvailable()]);
+  const checks = { fedoraReachable: Boolean(device.platform), adbConnected: integration.adb.connected, sunshineAvailable: integration.sunshine.available, sunshineActive: integration.sunshine.active, webConsoleAvailable: webConsole };
   const ready = checks.fedoraReachable && checks.sunshineAvailable;
   audit('preflight_health', 'accepted', 'system:read');
   return { structuredContent: { checks, ready }, content: [{ type: 'text' as const, text: ready ? 'Pre-flight passed.' : 'Pre-flight requires attention.' }] };
@@ -85,10 +88,10 @@ const modeInput = { confirmed: z.boolean().describe('Must be true after the user
 const modeOutput = { status: z.object({ mode: z.enum(['dev', 'game']).nullable(), transitioning: z.boolean() }), preflight: z.object({ adbConnected: z.boolean(), sunshineActive: z.boolean(), webConsoleAvailable: z.boolean() }) };
 const runModeAutomation = async (target: 'dev' | 'game', confirmed: boolean) => {
   requireConfirmedWrite(confirmed);
-  const preflight = await readIntegrationStatus();
+  const [preflight, webConsole] = await Promise.all([readIntegrationStatus(), webConsoleAvailable()]);
   audit(`mode.${target}`, 'accepted', 'mode:control');
   const status = await modes.switchTo(target);
-  return { structuredContent: { status, preflight: { adbConnected: preflight.adb.connected, sunshineActive: preflight.sunshine.active, webConsoleAvailable: preflight.sunshine.available } }, content: [{ type: 'text' as const, text: `${target === 'dev' ? 'Work' : 'Game'} Mode is active.` }] };
+  return { structuredContent: { status, preflight: { adbConnected: preflight.adb.connected, sunshineActive: preflight.sunshine.active, webConsoleAvailable: webConsole } }, content: [{ type: 'text' as const, text: `${target === 'dev' ? 'Work' : 'Game'} Mode is active.` }] };
 };
 server.registerTool('start_dev_mode', {
   title: 'Start Dev Mode', description: 'Switch Fedora to Dev Mode. This stops Sunshine and starts the configured local web service; it changes system state and requires explicit user confirmation.', inputSchema: modeInput, outputSchema: modeOutput, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
