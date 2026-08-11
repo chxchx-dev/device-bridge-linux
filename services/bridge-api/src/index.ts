@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
-import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, DeviceIdSchema, PairingRequestSchema } from '@devicebridge/contracts';
+import { ActionIdSchema, ActionRequestSchema, AuditEventSchema, DeviceIdSchema, ModeSwitchInputSchema, PairingRequestSchema } from '@devicebridge/contracts';
 import { actionRegistry } from '@devicebridge/command-registry';
 import { authenticate, type AuthContext } from './auth.js';
 import { PairingStore } from './pairing.js';
@@ -10,6 +10,8 @@ import { pairingPage } from './pairing-page.js';
 import { ChallengeStore } from './challenges.js';
 import { createSystemSessionAdapter, type SessionAdapter } from './system-actions.js';
 import { controlSunshine, readIntegrationStatus, startScrcpy, type IntegrationStatus, type ScrcpyStartResult, type SunshineControlResult, type SunshineOperation } from './integrations.js';
+import { createDockerModeAdapter } from './docker.js';
+import { ModeOrchestrator } from './modes.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -79,15 +81,17 @@ export interface AppOptions {
   enableSystemLock?: boolean;
   enableScrcpy?: boolean;
   enableSunshineControl?: boolean;
+  enableModes?: boolean;
   challenges?: ChallengeStore;
   sessionAdapter?: SessionAdapter;
   integrationStatus?: () => Promise<IntegrationStatus>;
   scrcpyStart?: () => Promise<ScrcpyStartResult>;
   sunshineControl?: (operation: SunshineOperation) => Promise<SunshineControlResult>;
+  modeOrchestrator?: ModeOrchestrator;
 }
 
 export function createApp(options: AppOptions = {}): FastifyInstance {
-  const defaultCapabilities = options.defaultCapabilities ?? (process.env.DEVICEBRIDGE_DEFAULT_CAPABILITIES?.split(',').map((capability) => capability.trim()).filter(Boolean) ?? ['system:read', 'android:read', 'gaming:read']);
+  const defaultCapabilities = options.defaultCapabilities ?? (process.env.DEVICEBRIDGE_DEFAULT_CAPABILITIES?.split(',').map((capability) => capability.trim()).filter(Boolean) ?? ['system:read', 'mode:read', 'android:read', 'gaming:read']);
   const store = options.store ?? new PairingStore(defaultCapabilities);
   const auditSink = options.auditSink ?? new InMemoryAuditSink();
   const challenges = options.challenges ?? new ChallengeStore();
@@ -98,6 +102,8 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   const enableScrcpy = options.enableScrcpy ?? process.env.DEVICEBRIDGE_ENABLE_SCRCPY === 'true';
   const enableSunshineControl = options.enableSunshineControl ?? process.env.DEVICEBRIDGE_ENABLE_SUNSHINE_CONTROL === 'true';
   const sunshineControl = options.sunshineControl ?? controlSunshine;
+  const enableModes = options.enableModes ?? process.env.DEVICEBRIDGE_ENABLE_MODES === 'true';
+  const modes = options.modeOrchestrator ?? new ModeOrchestrator({ docker: createDockerModeAdapter(), sunshine: sunshineControl });
   const devDeviceId = options.devDeviceId ?? process.env.DEVICEBRIDGE_DEVICE_ID;
   const devToken = options.devToken ?? process.env.DEVICEBRIDGE_DEV_TOKEN;
   const pairingToken = options.pairingToken ?? process.env.DEVICEBRIDGE_PAIRING_TOKEN;
@@ -153,7 +159,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/v1/actions', async (request) => {
     audit(request, auditSink, 'accepted');
-    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : enabledByDefault, confirmation, description })) };
+    return { requestId: request.requestId, actions: Object.values(actionRegistry).map(({ id, risk, capability, enabledByDefault, confirmation, description }) => ({ id, risk, capability, enabledByDefault: id === 'system.lock' ? enableSystemLock : id === 'android.scrcpy.start' ? enableScrcpy : id === 'gaming.sunshine.start' || id === 'gaming.sunshine.stop' ? enableSunshineControl : id === 'mode.switch' ? enableModes : enabledByDefault, confirmation, description })) };
   });
 
   app.get('/v1/actions/:actionId/challenge', async (request, reply) => {
@@ -183,13 +189,17 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'rejected', 'invalid_input');
       return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Invalid action payload' } });
     }
+    if (idResult.data === 'mode.switch' && !ModeSwitchInputSchema.safeParse(bodyResult.data.input).success) {
+      audit(request, auditSink, 'rejected', 'invalid_mode_input');
+      return reply.code(400).send({ requestId: request.requestId, error: { code: 'INVALID_INPUT', message: 'Mode must be dev or game' } });
+    }
     const definition = actionRegistry[idResult.data];
     const hasCapability = request.authContext?.capabilities.includes(definition.capability) ?? false;
     if (!hasCapability) {
       audit(request, auditSink, 'rejected', 'insufficient_capability', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'denied', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'INSUFFICIENT_CAPABILITY', message: 'The paired device lacks the required capability' } });
     }
-    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.enabledByDefault;
+    const actionEnabled = definition.id === 'system.lock' ? enableSystemLock : definition.id === 'android.scrcpy.start' ? enableScrcpy : definition.id === 'gaming.sunshine.start' || definition.id === 'gaming.sunshine.stop' ? enableSunshineControl : definition.id === 'mode.switch' ? enableModes : definition.enabledByDefault;
     if (!actionEnabled) {
       audit(request, auditSink, 'rejected', 'action_disabled', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'not_run' });
       return reply.code(403).send({ requestId: request.requestId, error: { code: 'ACTION_DISABLED', message: `${definition.id} is not enabled in the starter` } });
@@ -205,6 +215,25 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
       audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
       events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
       return { requestId: request.requestId, actionId: definition.id, status: 'completed', result: readDeviceStatus() };
+    }
+    if (definition.id === 'mode.status') {
+      const result = modes.status();
+      audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: 0 });
+      events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
+      return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+    }
+    if (definition.id === 'mode.switch') {
+      const target = ModeSwitchInputSchema.parse(bodyResult.data.input).target;
+      const startedAt = performance.now();
+      try {
+        const result = await modes.switchTo(target);
+        audit(request, auditSink, 'accepted', undefined, { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'completed', durationMs: performance.now() - startedAt });
+        events.publish('action.completed', { actionId: definition.id, requestId: request.requestId });
+        return { requestId: request.requestId, actionId: definition.id, status: 'completed', result };
+      } catch {
+        audit(request, auditSink, 'failed', 'mode_transition_failed', { actionId: definition.id, risk: definition.risk, capability: definition.capability, authorization: 'granted', executionStatus: 'failed', durationMs: performance.now() - startedAt });
+        return reply.code(502).send({ requestId: request.requestId, error: { code: 'MODE_TRANSITION_FAILED', message: 'The requested mode transition failed' } });
+      }
     }
     if (definition.id === 'integrations.status') {
       const result = await integrationStatus();

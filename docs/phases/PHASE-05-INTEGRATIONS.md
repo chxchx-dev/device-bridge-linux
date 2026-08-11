@@ -20,5 +20,9 @@ Start selected project services, open expected workspace and expose status.
 ### Game Mode
 Stop selected heavy dev workloads, start Sunshine, expose connection status and hand off to Moonlight.
 
+The first mode-orchestration slice now validates `dev`/`game`, applies fixed
+Docker/Sunshine plans and rolls back a failed transition. SQLite persistence,
+the local project registry and the Android mode selector remain pending.
+
 ## Exit criteria
 One-tap modes are deterministic, reversible and never invoke arbitrary shell input from Android.

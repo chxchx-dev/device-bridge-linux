@@ -5,6 +5,8 @@ export type RiskClass = z.infer<typeof RiskClassSchema>;
 
 export const ActionIdSchema = z.enum([
   'system.status',
+  'mode.status',
+  'mode.switch',
   'integrations.status',
   'android.kdeconnect.status',
   'android.scrcpy.start',
@@ -20,6 +22,12 @@ export const ActionIdSchema = z.enum([
   'codex.approval.respond',
 ]);
 export type ActionId = z.infer<typeof ActionIdSchema>;
+
+export const ModeSchema = z.enum(['dev', 'game']);
+export type Mode = z.infer<typeof ModeSchema>;
+
+export const ModeSwitchInputSchema = z.object({ target: ModeSchema });
+export type ModeSwitchInput = z.infer<typeof ModeSwitchInputSchema>;
 
 export const DeviceIdSchema = z.string().regex(/^(android|fedora)-[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/, 'Invalid DeviceBridge device ID');
 export type DeviceId = z.infer<typeof DeviceIdSchema>;

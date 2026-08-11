@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createApp } from './index.js';
 import { PairingStore, pairingCodeForToken } from './pairing.js';
 import { createSystemSessionAdapter } from './system-actions.js';
+import { ModeOrchestrator } from './modes.js';
 
 const deviceId = 'android-a17-test';
 const pairingToken = 'pairing-token-for-tests-1234567890';
@@ -197,6 +198,29 @@ test('Sunshine start and stop are opt-in, confirmed and use the fixed control ad
   assert.equal(stop.statusCode, 200);
   assert.deepEqual(stop.json().result, { requested: 'stop', active: false });
   assert.deepEqual(operations, ['start', 'stop']);
+  await app.close();
+});
+
+test('mode switch accepts only dev or game and requires confirmation', async () => {
+  const token = 'device-token-for-mode-test-1234567890';
+  const store = new PairingStore(['mode:read', 'mode:control']);
+  store.seedDevice(deviceId, token);
+  const calls: string[] = [];
+  const modes = new ModeOrchestrator({
+    docker: { startDev: async () => { calls.push('docker.start'); }, stopDev: async () => { calls.push('docker.stop'); } },
+    sunshine: async (operation) => { calls.push(`sunshine.${operation}`); return { requested: operation, active: operation === 'start' }; },
+  });
+  const app = createApp({ store, enableModes: true, modeOrchestrator: modes });
+  const headers = { authorization: `Bearer ${token}`, 'x-devicebridge-device': deviceId };
+
+  const invalid = await app.inject({ method: 'POST', url: '/v1/actions/mode.switch', headers, payload: { input: { target: 'invalid' } } });
+  assert.equal(invalid.statusCode, 400);
+
+  const challenge = await app.inject({ method: 'GET', url: '/v1/actions/mode.switch/challenge', headers });
+  const switched = await app.inject({ method: 'POST', url: '/v1/actions/mode.switch', headers, payload: { input: { target: 'dev' }, confirmation: { challengeId: challenge.json().challengeId } } });
+  assert.equal(switched.statusCode, 200);
+  assert.deepEqual(switched.json().result, { mode: 'dev', transitioning: false });
+  assert.deepEqual(calls, ['sunshine.stop', 'docker.start']);
   await app.close();
 });
 
