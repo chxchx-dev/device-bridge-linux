@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Animated, Easing, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DEVICE_ID } from './src/config';
 import { BridgeClient, type Action, type CodexApprovalMetadata, type CodexGatewayStatus, type CodexThreadMetadata, type DeviceStatus, type IntegrationStatus, type Mode, type ModeStatus } from './src/api/bridge-client';
 import { connectBridgeEvents } from './src/events/bridge-events';
@@ -25,6 +25,18 @@ export default function App() {
   const [showPairingToken, setShowPairingToken] = useState(false);
   const [message, setMessage] = useState('Checking secure session…');
   const [busy, setBusy] = useState(false);
+  const heroEntry = useRef(new Animated.Value(0)).current;
+  const heroPulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(heroEntry, { toValue: 1, duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    const pulse = Animated.loop(Animated.sequence([
+      Animated.timing(heroPulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
+      Animated.timing(heroPulse, { toValue: 0, duration: 1400, useNativeDriver: true }),
+    ]));
+    pulse.start();
+    return () => pulse.stop();
+  }, [heroEntry, heroPulse]);
 
   const refresh = useCallback(async (activeSession: StoredSession) => {
     const [device, catalog] = await Promise.all([client.getDevice(activeSession), client.getActions(activeSession)]);
@@ -152,7 +164,7 @@ export default function App() {
   return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <StatusBar barStyle="light-content" />
     <Text style={styles.eyebrow}>PRIVATE TAILNET CONTROL</Text><Text style={styles.title}>DeviceBridge</Text><Text style={styles.subtitle}>Controla Fedora desde tu teléfono, con acciones visibles y confirmadas.</Text>
-    {session ? <View style={styles.heroPanel}><View style={styles.heroOrb}><Text style={styles.heroOrbText}>●</Text></View><View style={styles.heroCopy}><Text style={styles.heroKicker}>FEDORA NODE</Text><Text style={styles.heroTitle}>{status ? 'ONLINE' : 'CONNECTING'}</Text><Text style={styles.heroCaption}>Control plane seguro · enlace privado</Text></View><View style={styles.secureBadge}><Text style={styles.secureBadgeText}>SECURE</Text></View></View> : null}
+    {session ? <Animated.View style={[styles.heroPanel, { opacity: heroEntry, transform: [{ translateY: heroEntry.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}><Animated.View style={[styles.heroOrb, { transform: [{ scale: heroPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }], opacity: heroPulse.interpolate({ inputRange: [0, 1], outputRange: [0.78, 1] }) }]}><Text style={styles.heroOrbText}>●</Text></Animated.View><View style={styles.heroCopy}><Text style={styles.heroKicker}>FEDORA NODE</Text><Text style={styles.heroTitle}>{status ? 'ONLINE' : 'CONNECTING'}</Text><Text style={styles.heroCaption}>Control plane seguro · enlace privado</Text></View><View style={styles.secureBadge}><Text style={styles.secureBadgeText}>SECURE</Text></View></Animated.View> : null}
     {!session ? <View style={styles.card}><Text style={styles.heading}>Pair Android</Text><Text style={styles.body}>Device ID: {DEVICE_ID}</Text><TextInput value={pairingToken} onChangeText={setPairingToken} placeholder="Token largo o código de 6 dígitos" placeholderTextColor="#7890aa" secureTextEntry={!showPairingToken} autoCapitalize="none" autoCorrect={false} style={styles.input} /><Pressable onPress={() => setShowPairingToken((shown) => !shown)} style={styles.secondary}><Text style={styles.secondaryText}>{showPairingToken ? 'Ocultar token' : 'Mostrar token'}</Text></Pressable><Pressable disabled={busy || pairingToken.trim().length < 6} onPress={() => void pair()} style={styles.button}><Text style={styles.buttonText}>{busy ? 'Pairing…' : 'Pair device'}</Text></Pressable></View> : <View style={styles.card}>
       <View style={styles.sectionHeader}><Text style={styles.heading}>Fedora</Text><View style={styles.badge}><Text style={styles.badgeText}>{status ? 'CONECTADO' : 'CONECTANDO'}</Text></View></View>{status ? <View style={styles.summary}><Text style={styles.body}>{status.platform}</Text><Text style={styles.caption}>Memoria {Math.round((status.totalMemoryBytes - status.freeMemoryBytes) / 1024 / 1024)} / {Math.round(status.totalMemoryBytes / 1024 / 1024)} MB · {Math.floor(status.uptimeSeconds / 3600)} h activo</Text></View> : <Text style={styles.body}>Cargando estado seguro…</Text>}<Text style={styles.caption}>{statusAction?.description ?? 'Estado autenticado del sistema'}</Text><Pressable disabled={busy} onPress={() => void runStatus()} style={styles.button}><Text style={styles.buttonText}>Actualizar estado</Text></Pressable>
       <View style={styles.divider} />
@@ -173,7 +185,7 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 22, paddingBottom: 52, backgroundColor: '#050b16' },
-  eyebrow: { color: '#54f2c2', fontSize: 11, fontWeight: '800', letterSpacing: 2.5 }, title: { color: '#f1f7ff', fontSize: 48, fontWeight: '900', letterSpacing: -1, marginTop: 8 }, subtitle: { color: '#91abc4', fontSize: 16, marginTop: 10, lineHeight: 23 },
+  eyebrow: { color: '#54f2c2', fontSize: 11, fontWeight: '800', letterSpacing: 2.5 }, title: { color: '#f1f7ff', fontSize: 32, fontWeight: '900', letterSpacing: 0.5, marginTop: 8 }, subtitle: { color: '#91abc4', fontSize: 15, marginTop: 8, lineHeight: 21 },
   heroPanel: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 24, padding: 18, backgroundColor: '#0a1b2c', borderColor: '#24718a', borderWidth: 1, borderRadius: 24, shadowColor: '#00d9ff', shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 0 }, elevation: 8 }, heroOrb: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#123b4b', borderColor: '#54f2c2', borderWidth: 1 }, heroOrbText: { color: '#54f2c2', fontSize: 24, lineHeight: 26 }, heroCopy: { flex: 1, gap: 2 }, heroKicker: { color: '#54f2c2', fontSize: 10, fontWeight: '900', letterSpacing: 2 }, heroTitle: { color: '#f1f7ff', fontSize: 25, fontWeight: '900', letterSpacing: 1 }, heroCaption: { color: '#91abc4', fontSize: 12 }, secureBadge: { borderColor: '#54f2c2', borderWidth: 1, borderRadius: 99, paddingHorizontal: 8, paddingVertical: 4 }, secureBadgeText: { color: '#54f2c2', fontSize: 10, fontWeight: '900' },
   card: { marginTop: 18, padding: 20, gap: 14, backgroundColor: '#0a1525', borderColor: '#1c4059', borderWidth: 1, borderRadius: 22, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 }, modePanel: { marginTop: 4, gap: 10, padding: 15, backgroundColor: '#0b2032', borderColor: '#1c536b', borderWidth: 1, borderRadius: 16 }, approvalPanel: { marginTop: 4, gap: 10, padding: 14, backgroundColor: '#302018', borderColor: '#8d5a3f', borderWidth: 1, borderRadius: 14 }, modeRow: { flexDirection: 'row', gap: 10 }, modeButton: { flex: 1, padding: 14, alignItems: 'center', borderRadius: 12, backgroundColor: '#54f2c2' }, selectedButton: { backgroundColor: '#a7ffe3', borderColor: '#f1f7ff', borderWidth: 1 }, denyButton: { flex: 1, padding: 14, alignItems: 'center', borderRadius: 12, backgroundColor: '#d77d83' }, heading: { color: '#f1f7ff', fontSize: 20, fontWeight: '800', letterSpacing: 0.2 }, body: { color: '#d1dfec', fontSize: 16 }, caption: { color: '#91abc4', fontSize: 14 }, input: { color: '#eef6ff', borderColor: '#315875', borderWidth: 1, borderRadius: 12, padding: 13, backgroundColor: '#071321' }, button: { padding: 14, alignItems: 'center', borderRadius: 12, backgroundColor: '#54f2c2' }, buttonText: { color: '#04101c', fontWeight: '800' }, secondary: { padding: 12, alignItems: 'center', borderColor: '#315875', borderWidth: 1, borderRadius: 12, backgroundColor: '#0b1b2c' }, secondaryText: { color: '#c6d9e8', fontWeight: '700' }, message: { marginTop: 18, color: '#91abc4' }, sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }, badge: { borderColor: '#3a8f88', backgroundColor: '#0d2a32', borderWidth: 1, borderRadius: 99, paddingHorizontal: 9, paddingVertical: 4 }, badgeText: { color: '#54f2c2', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }, summary: { gap: 4 }, divider: { height: 1, backgroundColor: '#1c4059', marginVertical: 6 }, integrationList: { gap: 8, padding: 12, backgroundColor: '#071321', borderRadius: 12 }, thread: { gap: 3, paddingVertical: 9, borderBottomColor: '#1c4059', borderBottomWidth: 1 },
 });
