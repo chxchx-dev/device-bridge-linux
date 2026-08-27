@@ -10,7 +10,7 @@ usage() {
   cat <<'MSG'
 Uso: ./scripts/devicebridge.sh <up|down|status>
 
-  up      compila el proyecto y arranca los servicios user-level
+  up      compila el proyecto y arranca solo el bridge API en 127.0.0.1:8787
   down    detiene los servicios DeviceBridge sin borrar datos
   status  muestra servicios y salud local
 MSG
@@ -26,7 +26,7 @@ up() {
   cd "$project_root"
   pnpm build
   systemctl --user daemon-reload
-  systemctl --user restart "$bridge_service" "$web_service" "$keep_awake_service"
+  systemctl --user restart "$bridge_service"
   sleep 1
   status
 }
